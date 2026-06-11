@@ -1,7 +1,7 @@
 'use client';
 import { useNucleusStore } from '@/store/useNucleusStore';
 import { usePatient } from '@/hooks';
-import { pwatColor, depthSeverityColor, formatDate, gcsImageUrl, gcsTextUrl } from '@/lib/utils';
+import { pwatColor, depthSeverityColor, formatDate } from '@/lib/utils';
 import { gcsImageUrl as gcsImg, gcsTextUrl as gcsTxt } from '@/lib/api';
 import { useState } from 'react';
 
@@ -53,8 +53,8 @@ export default function PatientModal() {
   };
 
   const s = patient;
-  const wm = s?.wound_metrics ?? {};
-  const gcs = s?.gcs_outputs ?? {} as any;
+  const wm: any = s?.wound_metrics ?? {};
+  const gcs: any = s?.gcs_outputs ?? {};
 
   return (
     <>
