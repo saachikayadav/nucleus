@@ -435,8 +435,11 @@ body {
 .metric-info:hover .metric-info-popover, .metric-info:focus .metric-info-popover, .metric-info-popover.is-open, .metric-card:hover .metric-info-popover, .patient-field:hover .metric-info-popover { opacity: 1; visibility: visible; transform: translateY(0); }
 .metric-info-popover::after { content: ''; position: absolute; top: 100%; left: 16px; border: 5px solid transparent; border-top-color: var(--border-hi); }
 .metric-card .metric-info { width: 100%; }
-.metric-card .metric-info-popover, .card-header .metric-info-popover, .data-table .metric-info-popover, .patient-field .metric-info-popover { top: calc(100% + 9px); bottom: auto; }
-.metric-card .metric-info-popover::after, .card-header .metric-info-popover::after, .data-table .metric-info-popover::after, .patient-field .metric-info-popover::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--border-hi); }
+.metric-info-portal { position: fixed; bottom: auto; z-index: 10000; opacity: 1; visibility: visible; transform: none; animation: metric-tip-in .12s ease-out; }
+.metric-info-portal::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--border-hi); }
+.metric-info-portal.is-above { transform: translateY(-100%); }
+.metric-info-portal.is-above::after { top: 100%; bottom: auto; border-top-color: var(--border-hi); border-bottom-color: transparent; }
+@keyframes metric-tip-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .metric-info-popover { transition: none; } }
 .triage-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; font-family: var(--mono); letter-spacing: 0.5px; }
 .triage-Red          { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
