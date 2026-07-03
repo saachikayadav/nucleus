@@ -1,6 +1,7 @@
 'use client';
 
-import { ReactNode, useId, useState } from 'react';
+import { ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export const METRIC_DESCRIPTIONS = {
   totalCases: 'The total number of wound-assessment sessions currently available in Nucleus.',
@@ -28,10 +29,44 @@ export function MetricInfo({ label, description, children, className = '' }: {
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ left: 0, top: 0, above: false });
+  const anchorRef = useRef<HTMLSpanElement>(null);
   const id = `metric-info-${useId().replace(/:/g, '')}`;
+
+  useEffect(() => {
+    const card = anchorRef.current?.closest('.metric-card');
+    if (!card) return;
+    const show = () => setOpen(true);
+    const hide = () => setOpen(false);
+    card.addEventListener('mouseenter', show);
+    card.addEventListener('mouseleave', hide);
+    return () => {
+      card.removeEventListener('mouseenter', show);
+      card.removeEventListener('mouseleave', hide);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open || !anchorRef.current) return;
+    const updatePosition = () => {
+      const rect = anchorRef.current!.getBoundingClientRect();
+      const tooltipWidth = Math.min(280, window.innerWidth - 24);
+      const left = Math.max(12, Math.min(rect.left, window.innerWidth - tooltipWidth - 12));
+      const above = window.innerHeight - rect.bottom < 120 && rect.top > 120;
+      setPosition({ left, top: above ? rect.top - 9 : rect.bottom + 9, above });
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open]);
 
   return (
     <span
+      ref={anchorRef}
       className={`metric-info ${className}`}
       tabIndex={0}
       aria-label={`${label}. ${description}`}
@@ -45,7 +80,17 @@ export function MetricInfo({ label, description, children, className = '' }: {
     >
       {children ?? label}
       <span className="metric-info-dot" aria-hidden="true">i</span>
-      <span id={id} role="tooltip" className={`metric-info-popover${open ? ' is-open' : ''}`}>{description}</span>
+      {open && createPortal(
+        <span
+          id={id}
+          role="tooltip"
+          className={`metric-info-popover metric-info-portal${position.above ? ' is-above' : ''}`}
+          style={{ left: position.left, top: position.top }}
+        >
+          {description}
+        </span>,
+        document.body,
+      )}
     </span>
   );
 }

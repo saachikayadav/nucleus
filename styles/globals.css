@@ -427,7 +427,7 @@ body {
 .patient-field-value { font-size: 13px; color: var(--text); font-weight: 500; }
 
 /* ── CONTEXTUAL METRIC HELP ── */
-.metric-info { position: relative; display: inline-flex; align-items: center; gap: 6px; cursor: help; outline: none; }
+.metric-info { position: relative; z-index: 101; display: inline-flex; align-items: center; gap: 6px; cursor: help; outline: none; }
 .metric-info-dot { width: 14px; height: 14px; border: 1px solid var(--border-hi); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: var(--text3); font: 500 9px/1 var(--mono); text-transform: none; letter-spacing: 0; transition: color .15s, border-color .15s; }
 .metric-info:hover .metric-info-dot, .metric-info:focus .metric-info-dot { color: var(--cyan); border-color: rgba(34,211,238,.5); }
 .metric-info:focus-visible { border-radius: 4px; box-shadow: 0 0 0 2px rgba(59,130,246,.45); }
@@ -435,6 +435,11 @@ body {
 .metric-info:hover .metric-info-popover, .metric-info:focus .metric-info-popover, .metric-info-popover.is-open, .metric-card:hover .metric-info-popover, .patient-field:hover .metric-info-popover { opacity: 1; visibility: visible; transform: translateY(0); }
 .metric-info-popover::after { content: ''; position: absolute; top: 100%; left: 16px; border: 5px solid transparent; border-top-color: var(--border-hi); }
 .metric-card .metric-info { width: 100%; }
+.metric-info-portal { position: fixed; bottom: auto; z-index: 10000; opacity: 1; visibility: visible; transform: none; animation: metric-tip-in .12s ease-out; }
+.metric-info-portal::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--border-hi); }
+.metric-info-portal.is-above { transform: translateY(-100%); }
+.metric-info-portal.is-above::after { top: 100%; bottom: auto; border-top-color: var(--border-hi); border-bottom-color: transparent; }
+@keyframes metric-tip-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .metric-info-popover { transition: none; } }
 .triage-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; font-family: var(--mono); letter-spacing: 0.5px; }
 .triage-Red          { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
