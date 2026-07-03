@@ -2,16 +2,7 @@
 import { useSummary, useAllSessions } from '@/hooks';
 import { useNucleusStore } from '@/store/useNucleusStore';
 import { pwatColor, triageClass, depthSeverityColor, formatDate, formatTime } from '@/lib/utils';
-
-function MetricCard({ label, value, sub, color, bg }: any) {
-  return (
-    <div className={`metric-card ${bg}`}>
-      <div className="metric-label">{label}</div>
-      <div className={`metric-value ${color}`}>{value}</div>
-      <div className="metric-delta" dangerouslySetInnerHTML={{ __html: sub }} />
-    </div>
-  );
-}
+import { DescribedMetricCard, MetricInfo, METRIC_DESCRIPTIONS as info } from '@/components/ui/MetricInfo';
 
 export default function OverviewPage() {
   const { data: summary, isLoading: sumLoading } = useSummary();
@@ -46,18 +37,16 @@ export default function OverviewPage() {
       </div>
 
       <div className="metrics-grid">
-        <MetricCard label="Total Cases" value={sumLoading ? '—' : totalCases} sub='<span style="color:var(--text3)">All sessions recorded</span>' color="cv-blue" bg="mc-blue" />
-        <MetricCard label="Avg PWAT Score" value={sumLoading ? '—' : Number(avgPwat).toFixed(2)} sub={`<span style="color:var(--text3)">Min ${minPwat} · Max ${maxPwat}</span>`} color="cv-amber" bg="mc-amber" />
-        <MetricCard label="Critical (Red)" value={sumLoading ? '—' : redCount}
-          sub={redCount > 0 ? '<span class="delta-down">⚠ Immediate attention required</span>' : '<span class="delta-up">No critical cases</span>'}
-          color="cv-red" bg="mc-red" />
-        <MetricCard label="Max PWAT Score" value={sumLoading ? '—' : maxPwat} sub='<span style="color:var(--text3)">Highest severity recorded</span>' color="cv-cyan" bg="mc-cyan" />
+        <DescribedMetricCard label="Total Cases" description={info.totalCases} value={sumLoading ? '—' : totalCases} sub={<span style={{color:'var(--text3)'}}>All sessions recorded</span>} color="cv-blue" bg="mc-blue" />
+        <DescribedMetricCard label="Avg PWAT Score" description={info.avgPwat} value={sumLoading ? '—' : Number(avgPwat).toFixed(2)} sub={<span style={{color:'var(--text3)'}}>Min {minPwat} · Max {maxPwat}</span>} color="cv-amber" bg="mc-amber" />
+        <DescribedMetricCard label="Critical (Red)" description={info.critical} value={sumLoading ? '—' : redCount} sub={<span className={redCount > 0 ? 'delta-down' : 'delta-up'}>{redCount > 0 ? '⚠ Immediate attention required' : 'No critical cases'}</span>} color="cv-red" bg="mc-red" />
+        <DescribedMetricCard label="Max PWAT Score" description={info.maxPwat} value={sumLoading ? '—' : maxPwat} sub={<span style={{color:'var(--text3)'}}>Highest severity recorded</span>} color="cv-cyan" bg="mc-cyan" />
       </div>
 
       <div className="mid-grid">
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Triage Distribution · All Cases</span>
+            <span className="card-title"><MetricInfo label="Triage Distribution" description={info.triage}>Triage Distribution · All Cases</MetricInfo></span>
             <span className="badge badge-live">{totalCases} CASES</span>
           </div>
           <div className="chart-area">
@@ -103,7 +92,7 @@ export default function OverviewPage() {
 
         <div className="card">
           <div className="card-header">
-            <span className="card-title">PWAT Score Breakdown</span>
+            <span className="card-title"><MetricInfo label="PWAT Score Breakdown" description={info.pwatDistribution} /></span>
             <span className="badge badge-ai">AI SCORED</span>
           </div>
           <div className="injury-list">
