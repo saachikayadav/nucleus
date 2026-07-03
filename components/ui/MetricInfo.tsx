@@ -45,7 +45,7 @@ export function MetricInfo({ label, description, children, className = '' }: {
     >
       {children ?? label}
       <span className="metric-info-dot" aria-hidden="true">i</span>
-      {open && <span id={id} role="tooltip" className="metric-info-popover">{description}</span>}
+      <span id={id} role="tooltip" className={`metric-info-popover${open ? ' is-open' : ''}`}>{description}</span>
     </span>
   );
 }
