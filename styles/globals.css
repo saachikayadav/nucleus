@@ -241,12 +241,12 @@ body {
 .metric-card {
   background: var(--glass); backdrop-filter: blur(20px);
   border: 1px solid var(--border); border-radius: var(--r);
-  padding: 20px; position: relative; overflow: hidden;
+  padding: 20px; position: relative; overflow: visible;
   transition: all 0.25s ease; cursor: default;
 }
 .metric-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent); }
 .metric-card::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; top: 0; border-radius: var(--r); opacity: 0; transition: opacity 0.25s; }
-.metric-card:hover { transform: translateY(-2px); }
+.metric-card:hover { transform: translateY(-2px); z-index: 20; cursor: help; }
 .metric-card:hover::after { opacity: 1; }
 .mc-blue::after  { box-shadow: inset 0 0 40px rgba(59,130,246,0.06); }
 .mc-cyan::after  { box-shadow: inset 0 0 40px rgba(34,211,238,0.06); }
@@ -425,6 +425,17 @@ body {
 .patient-field  { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
 .patient-field-label { font-size: 9px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; font-family: var(--mono); margin-bottom: 4px; }
 .patient-field-value { font-size: 13px; color: var(--text); font-weight: 500; }
+
+/* ── CONTEXTUAL METRIC HELP ── */
+.metric-info { position: relative; display: inline-flex; align-items: center; gap: 6px; cursor: help; outline: none; }
+.metric-info-dot { width: 14px; height: 14px; border: 1px solid var(--border-hi); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: var(--text3); font: 500 9px/1 var(--mono); text-transform: none; letter-spacing: 0; transition: color .15s, border-color .15s; }
+.metric-info:hover .metric-info-dot, .metric-info:focus .metric-info-dot { color: var(--cyan); border-color: rgba(34,211,238,.5); }
+.metric-info:focus-visible { border-radius: 4px; box-shadow: 0 0 0 2px rgba(59,130,246,.45); }
+.metric-info-popover { position: absolute; left: 0; bottom: calc(100% + 9px); z-index: 100; width: min(280px, 75vw); padding: 10px 12px; border: 1px solid var(--border-hi); border-radius: 9px; background: rgba(6,12,24,.98); box-shadow: 0 10px 30px rgba(0,0,0,.45); color: var(--text2); font: 400 11px/1.55 var(--font); letter-spacing: 0; text-align: left; text-transform: none; white-space: normal; pointer-events: none; opacity: 0; visibility: hidden; transform: translateY(3px); transition: opacity .12s ease-out, transform .12s ease-out, visibility .12s; }
+.metric-info:hover .metric-info-popover, .metric-info:focus .metric-info-popover, .metric-info-popover.is-open, .metric-card:hover .metric-info-popover, .patient-field:hover .metric-info-popover { opacity: 1; visibility: visible; transform: translateY(0); }
+.metric-info-popover::after { content: ''; position: absolute; top: 100%; left: 16px; border: 5px solid transparent; border-top-color: var(--border-hi); }
+.metric-card .metric-info { width: 100%; }
+@media (prefers-reduced-motion: reduce) { .metric-info-popover { transition: none; } }
 .triage-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; font-family: var(--mono); letter-spacing: 0.5px; }
 .triage-Red          { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
 .triage-Orange       { background: rgba(251,191,36,0.15); color: var(--amber); border: 1px solid rgba(251,191,36,0.3); }

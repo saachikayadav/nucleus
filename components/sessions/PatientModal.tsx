@@ -4,6 +4,7 @@ import { usePatient } from '@/hooks';
 import { pwatColor, depthSeverityColor, formatDate } from '@/lib/utils';
 import { gcsImageUrl as gcsImg, gcsTextUrl as gcsTxt } from '@/lib/api';
 import { useState } from 'react';
+import { MetricInfo, METRIC_DESCRIPTIONS as info } from '@/components/ui/MetricInfo';
 
 function imgTile(path: string, label: string, onOpen: (p: string, l: string) => void) {
   if (!path) return null;
@@ -126,11 +127,11 @@ export default function PatientModal() {
 
                 <div className="patient-detail">
                   <div className="patient-field">
-                    <div className="patient-field-label">PWAT Score</div>
+                    <div className="patient-field-label"><MetricInfo label="PWAT Score" description={info.pwat} /></div>
                     <div className="patient-field-value" style={{ fontSize: 22, fontWeight: 700, color: pwatColor(displayPwat) }}>{displayPwat}</div>
                   </div>
                   <div className="patient-field">
-                    <div className="patient-field-label">Triage Category</div>
+                    <div className="patient-field-label"><MetricInfo label="Triage Category" description={info.triage} /></div>
                     <div className="patient-field-value"><span className={`triage-badge triage-${displayTriage}`}>{displayTriage}</span></div>
                   </div>
                   <div className="patient-field">
@@ -139,18 +140,18 @@ export default function PatientModal() {
                     <div className="patient-field-value" style={{ fontSize: 12 }}>{formatDate(s.created_at)}</div> 
                   </div>
                   <div className="patient-field">
-                    <div className="patient-field-label">Depth Severity</div>
+                    <div className="patient-field-label"><MetricInfo label="Depth Severity" description={info.depthSeverity} /></div>
                     <div className="patient-field-value" style={{ color: depthSeverityColor(displayDepthSeverity === '—' ? null : displayDepthSeverity) }}>{displayDepthSeverity}</div>
                   </div>
                   {displayArea != null && (
                     <div className="patient-field">
-                      <div className="patient-field-label">Wound Area %</div>
+                      <div className="patient-field-label"><MetricInfo label="Wound Area %" description={info.woundArea} /></div>
                       <div className="patient-field-value">{Number(displayArea).toFixed(1)}%</div>
                     </div>
                   )}
                   {displayDepthMean != null && (
                     <div className="patient-field">
-                      <div className="patient-field-label">Depth Mean</div>
+                      <div className="patient-field-label"><MetricInfo label="Depth Mean" description={info.depthMean} /></div>
                       <div className="patient-field-value">{Number(displayDepthMean).toFixed(3)}</div>
                     </div>
                   )}

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useSummary, useAllSessions, useIncidents, useResolveIncident } from '@/hooks';
 import { useNucleusStore } from '@/store/useNucleusStore';
 import { pwatColor, triageClass, formatDate, depthSeverityColor } from '@/lib/utils';
+import { DescribedMetricCard, MetricInfo, METRIC_DESCRIPTIONS as info } from '@/components/ui/MetricInfo';
 
 export default function IncidentsPage() {
   const { data: summary } = useSummary();
@@ -31,14 +32,11 @@ export default function IncidentsPage() {
     <>
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Total Sessions', value: totalCases, color: 'cv-blue' },
-          { label: 'Critical Red',   value: triage.Red?.count ?? 0, color: 'cv-red' },
-          { label: 'Avg PWAT',       value: summary ? Number(summary.avg_pwat).toFixed(1) : '—', color: 'cv-amber' },
+          { label: 'Total Sessions', description: info.totalCases, value: totalCases, color: 'cv-blue' },
+          { label: 'Critical Red', description: info.critical, value: triage.Red?.count ?? 0, color: 'cv-red' },
+          { label: 'Avg PWAT', description: info.avgPwat, value: summary ? Number(summary.avg_pwat).toFixed(1) : '—', color: 'cv-amber' },
         ].map(c => (
-          <div key={c.label} style={{ flex: 1, background: 'var(--glass)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '14px 18px' }}>
-            <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>{c.label}</div>
-            <div className={`metric-value ${c.color}`} style={{ fontSize: 24 }}>{c.value}</div>
-          </div>
+          <DescribedMetricCard key={c.label} label={c.label} description={c.description} value={c.value} color={c.color} bg="" valueStyle={{fontSize:24}} />
         ))}
       </div>
 
@@ -107,7 +105,7 @@ export default function IncidentsPage() {
           </div>
         ) : (
           <table className="data-table">
-            <thead><tr><th>Session ID</th><th>Triage</th><th>PWAT</th><th>Depth</th><th>Area %</th><th>Recorded</th><th></th></tr></thead>
+            <thead><tr><th>Session ID</th><th><MetricInfo label="Triage" description={info.triage} /></th><th><MetricInfo label="PWAT" description={info.pwat} /></th><th><MetricInfo label="Depth" description={info.depthSeverity} /></th><th><MetricInfo label="Area %" description={info.woundArea} /></th><th>Recorded</th><th></th></tr></thead>
             <tbody>
               {filtered.map(s => {
                 const wm = s.wound_metrics ?? {} as any;

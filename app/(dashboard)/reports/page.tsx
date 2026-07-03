@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useAllSessions } from '@/hooks';
 import { useNucleusStore } from '@/store/useNucleusStore';
 import { pwatColor, triageClass, formatDate, depthSeverityColor } from '@/lib/utils';
+import { MetricInfo, METRIC_DESCRIPTIONS as info } from '@/components/ui/MetricInfo';
 
 export default function ReportsPage() {
   const { data: sd, isLoading } = useAllSessions();
@@ -63,7 +64,7 @@ export default function ReportsPage() {
                 </div>
                 <div style={{ padding: '14px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
                   <div>
-                    <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', letterSpacing: 2, marginBottom: 4 }}>PWAT SCORE</div>
+                    <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', letterSpacing: 2, marginBottom: 4 }}><MetricInfo label="PWAT Score" description={info.pwat} /></div>
                     <div style={{ fontSize: 22, fontWeight: 800, color: pwatColor(s.pwat_score) }}>{s.pwat_score}</div>
                   </div>
                   <div>

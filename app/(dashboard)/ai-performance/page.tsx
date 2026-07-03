@@ -2,6 +2,7 @@
 import { useSummary, useAllSessions } from '@/hooks';
 import { bucketPwat, pwatColor } from '@/lib/utils';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie } from 'recharts';
+import { DescribedMetricCard, MetricInfo, METRIC_DESCRIPTIONS as info } from '@/components/ui/MetricInfo';
 
 const TRIAGE_COLORS: Record<string,string> = { Red:'#f87171', Orange:'#fbbf24', Yellow:'#fde047', Green:'#4ade80' };
 
@@ -32,15 +33,15 @@ export default function AIPerformancePage() {
 
       <div className="section-hd"><div className="section-title">Live Stats · Computed from real sessions</div></div>
       <div className="metrics-grid" style={{ marginBottom:20 }}>
-        <div className="metric-card mc-blue"><div className="metric-label">Model Version</div><div className="metric-value cv-blue" style={{ fontSize:22 }}>v3.1</div></div>
-        <div className="metric-card mc-amber"><div className="metric-label">AI-Scored Sessions</div><div className="metric-value cv-amber">{sl?'—':total}</div></div>
-        <div className="metric-card mc-cyan"><div className="metric-label">Avg PWAT Assigned</div><div className="metric-value cv-cyan">{sl?'—':Number(avg).toFixed(2)}</div></div>
-        <div className="metric-card mc-red"><div className="metric-label">Critical Detections</div><div className="metric-value cv-red">{sl?'—':triage.Red?.count??0}<span style={{fontSize:12,color:'var(--text3)',fontWeight:400}}> Red</span></div></div>
+        <DescribedMetricCard label="Model Version" description={info.modelVersion} value="v3.1" color="cv-blue" bg="mc-blue" valueStyle={{fontSize:22}} />
+        <DescribedMetricCard label="AI-Scored Sessions" description={info.aiSessions} value={sl?'—':total} color="cv-amber" bg="mc-amber" />
+        <DescribedMetricCard label="Avg PWAT Assigned" description={info.avgPwat} value={sl?'—':Number(avg).toFixed(2)} color="cv-cyan" bg="mc-cyan" />
+        <DescribedMetricCard label="Critical Detections" description={info.critical} value={<>{sl?'—':triage.Red?.count??0}<span style={{fontSize:12,color:'var(--text3)',fontWeight:400}}> Red</span></>} color="cv-red" bg="mc-red" />
       </div>
 
       <div className="mid-grid" style={{ marginBottom:20 }}>
         <div className="card">
-          <div className="card-header"><span className="card-title">PWAT Score Distribution</span><span className="badge badge-live">LIVE DATA</span></div>
+          <div className="card-header"><span className="card-title"><MetricInfo label="PWAT Score Distribution" description={info.pwatDistribution} /></span><span className="badge badge-live">LIVE DATA</span></div>
           <div style={{ padding:'16px 18px' }}>
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={pwatBuckets} barSize={24}>
@@ -55,7 +56,7 @@ export default function AIPerformancePage() {
           </div>
         </div>
         <div className="card">
-          <div className="card-header"><span className="card-title">Triage Distribution</span><span className="badge badge-live">LIVE DATA</span></div>
+          <div className="card-header"><span className="card-title"><MetricInfo label="Triage Distribution" description={info.triage} /></span><span className="badge badge-live">LIVE DATA</span></div>
           <div style={{ padding:'20px 18px', display:'flex', alignItems:'center', gap:20 }}>
             {pieData.length > 0 ? (
               <>
@@ -86,7 +87,7 @@ export default function AIPerformancePage() {
       <div className="section-hd"><div className="section-title">Benchmark Stats · Static MD Validation Dataset</div><span className="badge badge-ai">STATIC BENCHMARK</span></div>
       <div className="card">
         <div className="card-header">
-          <span className="card-title">AI Recommendation Accuracy · Model v3.1</span>
+          <span className="card-title"><MetricInfo label="AI Recommendation Accuracy" description={info.accuracy}>AI Recommendation Accuracy · Model v3.1</MetricInfo></span>
           <span style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)', letterSpacing:1 }}>MD VALIDATED · NOT COMPUTED LIVE</span>
         </div>
         <div className="acc-area">
