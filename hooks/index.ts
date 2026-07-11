@@ -1,17 +1,31 @@
 'use client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchSummary, fetchSessions, fetchPatient, fetchIncidents, createIncident, resolveIncident, checkHealth } from '@/lib/api';
+import { useSession } from 'next-auth/react';
+import { fetchSummary, fetchSessions, fetchMySessions, fetchPatient, fetchIncidents, createIncident, resolveIncident, checkHealth } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 import { useNucleusStore } from '@/store/useNucleusStore';
 import { generateIncidentId } from '@/lib/utils';
 import { Incident } from '@/types';
+import { Permission, hasPermission } from '@/lib/rbac';
 
-export function useSummary() {
+// ── RBAC ────────────────────────────────────────────────────
+export function useRole() {
+  const { data: session } = useSession();
+  return session?.user?.role;
+}
+
+export function usePermission(permission: Permission) {
+  const role = useRole();
+  return hasPermission(role, permission);
+}
+
+export function useSummary(enabled = true) {
   return useQuery({
     queryKey: queryKeys.summary,
     queryFn: fetchSummary,
     staleTime: 60_000,
     refetchInterval: 60_000,
+    enabled,
   });
 }
 
@@ -35,6 +49,15 @@ export function useAllSessions() {
     },
     staleTime: 60_000,
     refetchInterval: 60_000,
+  });
+}
+
+export function useMySessions(limit = 20, offset = 0) {
+  return useQuery({
+    queryKey: queryKeys.mySessions(limit, offset),
+    queryFn: () => fetchMySessions(limit, offset),
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
   });
 }
 

@@ -2,9 +2,37 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { useSummary } from '@/hooks';
+import { useSummary, usePermission } from '@/hooks';
+import { ROLE_LABELS, PERMISSIONS } from '@/lib/rbac';
 
-const NAV = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  badge?: boolean;
+}
+
+interface NavGroup {
+  section: string;
+  items: NavItem[];
+}
+
+const PATIENT_NAV: NavGroup[] = [
+  {
+    section: 'My Care',
+    items: [
+      { href: '/my-sessions', label: 'My Sessions', icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 7h6M5 10h4"/></svg> },
+    ],
+  },
+  {
+    section: 'System',
+    items: [
+      { href: '/settings', label: 'Settings', icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2M3.8 3.8l1.4 1.4M10.8 10.8l1.4 1.4M3.8 12.2l1.4-1.4M10.8 5.2l1.4-1.4"/></svg> },
+    ],
+  },
+];
+
+const NAV: NavGroup[] = [
   {
     section: 'Command',
     items: [
@@ -39,8 +67,10 @@ const NAV = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const { data: summary } = useSummary();
+  const canViewOperations = usePermission(PERMISSIONS.OPERATIONS_VIEW);
+  const { data: summary } = useSummary(canViewOperations);
   const redCount = summary?.triage_distribution?.Red?.count ?? 0;
+  const nav = canViewOperations ? NAV : PATIENT_NAV;
 
   const initials = session?.user?.name
     ?.split(' ')
@@ -65,7 +95,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="nav">
-        {NAV.map((group) => (
+        {nav.map((group) => (
           <div key={group.section}>
             <div className="nav-section">{group.section}</div>
             {group.items.map((item) => (
@@ -94,7 +124,9 @@ export default function Sidebar() {
           <div className="avatar">{initials}</div>
           <div>
             <div className="user-name">{session?.user?.name ?? 'User'}</div>
-            <div className="user-role">Click to sign out</div>
+            <div className="user-role">
+              {session?.user?.role ? ROLE_LABELS[session.user.role] : ''} · Click to sign out
+            </div>
           </div>
         </div>
       </div>

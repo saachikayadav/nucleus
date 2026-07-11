@@ -16,8 +16,26 @@ const BQ_DATASET = "wound_ai";
 const BQ_TABLE = `${PROJECT_ID}.${BQ_DATASET}.sessions`;
 const BQ_INCIDENTS = `${PROJECT_ID}.${BQ_DATASET}.incidents`;
 
+// ASSUMPTION: column on the `sessions` table that identifies which patient
+// a session belongs to. This wasn't confirmed against the real BigQuery
+// schema — if the actual column has a different name, update this one
+// constant (nothing else needs to change).
+const PATIENT_EMAIL_COLUMN = "patient_email";
+
 const bigquery = new BigQuery({ projectId: PROJECT_ID });
 const storage = new Storage({ projectId: PROJECT_ID });
+
+// RBAC is enforced in the Next.js app (server-side, per the signed-in
+// user's role) before it ever reaches this service. Since CORS is wide
+// open above, this shared-secret check stops a client from calling the
+// write endpoints directly and skipping that role check.
+function requireInternalKey(req, res, next) {
+  const key = req.headers["x-internal-key"];
+  if (!process.env.INTERNAL_API_KEY || key !== process.env.INTERNAL_API_KEY) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  next();
+}
 
 async function runQuery(query, params = {}) {
   const [rows] = await bigquery.query({ query, params });
@@ -111,8 +129,10 @@ app.get("/health", async (req, res) => {
 
 /* PATIENTS SUMMARY */
 
-app.get("/patients/summary", async (req, res) => {
+app.get("/patients/summary", requireInternalKey, async (req, res) => {
   try {
+    const patientEmail = req.query.patientEmail || null;
+
     const query = `
       SELECT
         COUNT(*) total_cases,
@@ -124,9 +144,10 @@ app.get("/patients/summary", async (req, res) => {
         COUNTIF(pwat_score >= 4 AND pwat_score < 8) yellow_count,
         COUNTIF(pwat_score < 4) green_count
       FROM \`${BQ_TABLE}\`
+      ${patientEmail ? `WHERE ${PATIENT_EMAIL_COLUMN} = @patientEmail` : ""}
     `;
 
-    const rows = await runQuery(query);
+    const rows = await runQuery(query, patientEmail ? { patientEmail } : {});
     const r = rows[0] || {};
 
     const total = r.total_cases || 0;
@@ -173,19 +194,21 @@ app.get("/patients/summary", async (req, res) => {
 
 /* GET ALL PATIENTS */
 
-app.get("/patients", async (req, res) => {
+app.get("/patients", requireInternalKey, async (req, res) => {
   try {
     const { limit, offset } = getPagination(req, 20, 100);
+    const patientEmail = req.query.patientEmail || null;
 
     const query = `
       SELECT *
       FROM \`${BQ_TABLE}\`
+      ${patientEmail ? `WHERE ${PATIENT_EMAIL_COLUMN} = @patientEmail` : ""}
       ORDER BY created_at DESC
       LIMIT ${limit}
       OFFSET ${offset}
     `;
 
-    const rows = await runQuery(query);
+    const rows = await runQuery(query, patientEmail ? { patientEmail } : {});
 
     res.json({
       total_returned: rows.length,
@@ -201,18 +224,20 @@ app.get("/patients", async (req, res) => {
 
 /* GET SINGLE PATIENT */
 
-app.get("/patient/:sessionId", async (req, res) => {
+app.get("/patient/:sessionId", requireInternalKey, async (req, res) => {
   try {
     const sessionId = decodeURIComponent(req.params.sessionId);
+    const patientEmail = req.query.patientEmail || null;
 
     const query = `
       SELECT *
       FROM \`${BQ_TABLE}\`
       WHERE session_id = @sessionId
+      ${patientEmail ? `AND ${PATIENT_EMAIL_COLUMN} = @patientEmail` : ""}
       LIMIT 1
     `;
 
-    const rows = await runQuery(query, { sessionId });
+    const rows = await runQuery(query, patientEmail ? { sessionId, patientEmail } : { sessionId });
 
     if (!rows.length) {
       return res.status(404).json({
@@ -231,7 +256,7 @@ app.get("/patient/:sessionId", async (req, res) => {
 
 /* GET INCIDENTS */
 
-app.get("/incidents", async (req, res) => {
+app.get("/incidents", requireInternalKey, async (req, res) => {
   try {
     const { limit, offset } = getPagination(req, 50, 200);
 
@@ -268,7 +293,7 @@ app.get("/incidents", async (req, res) => {
 
 /* CREATE INCIDENT */
 
-app.post("/incidents", async (req, res) => {
+app.post("/incidents", requireInternalKey, async (req, res) => {
   try {
     const {
       id,
@@ -340,7 +365,7 @@ app.post("/incidents", async (req, res) => {
 
 /* RESOLVE INCIDENT */
 
-app.patch("/incidents/:incidentId/resolve", async (req, res) => {
+app.patch("/incidents/:incidentId/resolve", requireInternalKey, async (req, res) => {
   try {
     const incidentId = req.params.incidentId;
 

@@ -3,6 +3,8 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNucleusStore } from '@/store/useNucleusStore';
+import { usePermission } from '@/hooks';
+import { PERMISSIONS } from '@/lib/rbac';
 
 const TITLES: Record<string, string> = {
   '/overview':       'Command Overview',
@@ -14,6 +16,7 @@ const TITLES: Record<string, string> = {
   '/ai-performance': 'AI Performance',
   '/heatmaps':       'Heatmaps',
   '/settings':       'Settings',
+  '/my-sessions':    'My Sessions',
 };
 
 export default function Topbar() {
@@ -21,6 +24,7 @@ export default function Topbar() {
   const [clock, setClock] = useState('');
   const qc = useQueryClient();
   const setIncidentModalOpen = useNucleusStore((s) => s.setIncidentModalOpen);
+  const canCreateIncident = usePermission(PERMISSIONS.INCIDENTS_CREATE);
 
   useEffect(() => {
     const tick = () => {
@@ -51,9 +55,11 @@ export default function Topbar() {
           LIVE
         </div>
         <button className="btn" onClick={handleRefresh}>↻ Refresh</button>
-        <button className="btn btn-accent" onClick={() => setIncidentModalOpen(true)}>
-          + New Incident
-        </button>
+        {canCreateIncident && (
+          <button className="btn btn-accent" onClick={() => setIncidentModalOpen(true)}>
+            + New Incident
+          </button>
+        )}
       </div>
     </div>
   );

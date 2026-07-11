@@ -1,15 +1,17 @@
 'use client';
 import { useState } from 'react';
-import { useSummary, useAllSessions, useIncidents, useResolveIncident } from '@/hooks';
+import { useSummary, useAllSessions, useIncidents, useResolveIncident, usePermission } from '@/hooks';
 import { useNucleusStore } from '@/store/useNucleusStore';
 import { pwatColor, triageClass, formatDate, depthSeverityColor } from '@/lib/utils';
 import { DescribedMetricCard, MetricInfo, METRIC_DESCRIPTIONS as info } from '@/components/ui/MetricInfo';
+import { PERMISSIONS } from '@/lib/rbac';
 
 export default function IncidentsPage() {
   const { data: summary } = useSummary();
   const { data: sessionsData, isLoading } = useAllSessions();
   const { data: incidentsData } = useIncidents();
   const { mutate: resolve } = useResolveIncident();
+  const canResolve = usePermission(PERMISSIONS.INCIDENTS_RESOLVE);
   const setActivePatientId = useNucleusStore((s) => s.setActivePatientId);
   const [triageFilter, setTriageFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -56,9 +58,13 @@ export default function IncidentsPage() {
                     <td>{inc.location}</td>
                     <td style={{ fontFamily: 'var(--mono)' }}>{formatDate(inc.created_at)}</td>
                     <td>
-                      <button className="btn btn-success" style={{ fontSize: 10, padding: '4px 10px' }} onClick={() => resolve(inc.id)}>
-                        ✓ Resolve
-                      </button>
+                      {canResolve ? (
+                        <button className="btn btn-success" style={{ fontSize: 10, padding: '4px 10px' }} onClick={() => resolve(inc.id)}>
+                          ✓ Resolve
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

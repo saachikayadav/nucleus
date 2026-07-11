@@ -6,6 +6,8 @@ import { RESPONDERS, DEVICES, INCIDENT_TYPES } from '@/config/fleet';
 import { useSession } from 'next-auth/react';
 import { generateIncidentId } from '@/lib/utils';
 import { useState } from 'react';
+import { usePermission } from '@/hooks';
+import { PERMISSIONS } from '@/lib/rbac';
 
 type FormValues = {
   type: string;
@@ -23,12 +25,14 @@ export default function NewIncidentModal() {
   const [selectedResponder, setSelectedResponder] = useState('');
 
   const { register, handleSubmit, reset, formState: { errors }, watch } = useForm<FormValues>();
+  const canCreateIncident = usePermission(PERMISSIONS.INCIDENTS_CREATE);
 
   const responderValue = watch('responder');
   const assignedDevice = RESPONDERS.find(r => r.name === responderValue)?.device_id;
   const deviceForResponder = DEVICES.find(d => d.id === assignedDevice);
 
   if (!open) return null;
+  if (!canCreateIncident) return null; // guarded even if opened programmatically
 
   const onClose = () => { setOpen(false); reset(); };
 
