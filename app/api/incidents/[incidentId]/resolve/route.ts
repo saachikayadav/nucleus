@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { NextRequest } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { hasPermission, PERMISSIONS } from '@/lib/rbac';
+import { getEffectiveRole } from '@/lib/serverRole';
 
 export async function PATCH(
   request: NextRequest,
@@ -9,7 +10,7 @@ export async function PATCH(
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return new Response('Unauthorized', { status: 401 });
-  if (!hasPermission(session.user.role, PERMISSIONS.INCIDENTS_RESOLVE)) {
+  if (!hasPermission(getEffectiveRole(session), PERMISSIONS.INCIDENTS_RESOLVE)) {
     return new Response('Forbidden — insufficient role', { status: 403 });
   }
 

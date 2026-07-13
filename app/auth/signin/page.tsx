@@ -1,12 +1,22 @@
 'use client';
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
+import { Role } from '@/config/roles';
+import { ROLE_LABELS } from '@/lib/rbac';
+import { DEV_ROLE_SWITCH_ENABLED, setDevRoleCookie, clearDevRoleCookie } from '@/lib/devRole';
 
 export default function SignInPage() {
   const [loading, setLoading] = useState(false);
 
   const handleSignIn = async () => {
     setLoading(true);
+    clearDevRoleCookie(); // normal sign-in uses the real role, not a test override
+    await signIn('google', { callbackUrl: '/overview' });
+  };
+
+  const handleTestSignIn = async (role: Role) => {
+    setLoading(true);
+    setDevRoleCookie(role);
     await signIn('google', { callbackUrl: '/overview' });
   };
 
@@ -52,6 +62,30 @@ export default function SignInPage() {
           <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 24, fontFamily: 'var(--mono)' }}>
             Access restricted to authorized personnel
           </p>
+
+          {DEV_ROLE_SWITCH_ENABLED && (
+            <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px dashed rgba(255,255,255,0.15)' }}>
+              <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>
+                Testing only — pick a role
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(['admin', 'doctor', 'patient'] as Role[]).map((role) => (
+                  <button
+                    key={role}
+                    className="btn"
+                    disabled={loading}
+                    onClick={() => handleTestSignIn(role)}
+                    style={{ flex: 1, fontSize: 11, padding: '8px 0' }}
+                  >
+                    {ROLE_LABELS[role]}
+                  </button>
+                ))}
+              </div>
+              <p style={{ fontSize: 9, color: 'var(--text3)', marginTop: 10, fontFamily: 'var(--mono)', lineHeight: 1.5 }}>
+                Bypasses the real role lookup for this browser only. Remove before real launch.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </>

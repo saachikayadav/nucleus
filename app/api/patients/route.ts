@@ -3,13 +3,14 @@ import { NextRequest } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { hasPermission, PERMISSIONS } from '@/lib/rbac';
 import { forwardToBackend } from '@/lib/backend';
+import { getEffectiveRole } from '@/lib/serverRole';
 
 // Full patient list — admin/doctor only. Patients use /api/my-sessions
 // instead, which forces the filter to their own email server-side.
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return new Response('Unauthorized', { status: 401 });
-  if (!hasPermission(session.user.role, PERMISSIONS.OPERATIONS_VIEW)) {
+  if (!hasPermission(getEffectiveRole(session), PERMISSIONS.OPERATIONS_VIEW)) {
     return new Response('Forbidden — insufficient role', { status: 403 });
   }
 

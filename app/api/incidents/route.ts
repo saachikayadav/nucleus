@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { hasPermission, PERMISSIONS } from '@/lib/rbac';
 import { forwardToBackend } from '@/lib/backend';
+import { getEffectiveRole } from '@/lib/serverRole';
 
 // Incident feed — admin/doctor only. Patients have no concept of
 // "their own" incident (it's operational dispatch data, not per-patient),
@@ -10,7 +11,7 @@ import { forwardToBackend } from '@/lib/backend';
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return new Response('Unauthorized', { status: 401 });
-  if (!hasPermission(session.user.role, PERMISSIONS.OPERATIONS_VIEW)) {
+  if (!hasPermission(getEffectiveRole(session), PERMISSIONS.OPERATIONS_VIEW)) {
     return new Response('Forbidden — insufficient role', { status: 403 });
   }
 
@@ -24,7 +25,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return new Response('Unauthorized', { status: 401 });
-  if (!hasPermission(session.user.role, PERMISSIONS.INCIDENTS_CREATE)) {
+  if (!hasPermission(getEffectiveRole(session), PERMISSIONS.INCIDENTS_CREATE)) {
     return new Response('Forbidden — insufficient role', { status: 403 });
   }
 

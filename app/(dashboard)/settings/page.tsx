@@ -4,7 +4,7 @@ import { useNucleusStore } from '@/store/useNucleusStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { checkHealth } from '@/lib/api';
-import { usePermission } from '@/hooks';
+import { usePermission, useRole } from '@/hooks';
 import { PERMISSIONS, ROLE_LABELS } from '@/lib/rbac';
 
 export default function SettingsPage() {
@@ -14,7 +14,7 @@ export default function SettingsPage() {
   const [healthStatus, setHealthStatus] = useState<null | 'ok' | 'error'>('ok');
   const [testing, setTesting] = useState(false);
   const canManageSettings = usePermission(PERMISSIONS.SETTINGS_MANAGE);
-  const role = session?.user?.role;
+  const role = useRole();
 
   const testConnection = async () => {
     setTesting(true);

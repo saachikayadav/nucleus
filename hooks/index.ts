@@ -7,10 +7,17 @@ import { useNucleusStore } from '@/store/useNucleusStore';
 import { generateIncidentId } from '@/lib/utils';
 import { Incident } from '@/types';
 import { Permission, hasPermission } from '@/lib/rbac';
+import { DEV_ROLE_SWITCH_ENABLED, readDevRoleCookie } from '@/lib/devRole';
 
 // ── RBAC ────────────────────────────────────────────────────
 export function useRole() {
   const { data: session } = useSession();
+  // TEMPORARY testing override — see lib/devRole.ts. No-ops unless
+  // NEXT_PUBLIC_ENABLE_DEV_ROLE_SWITCH=true.
+  if (DEV_ROLE_SWITCH_ENABLED) {
+    const override = readDevRoleCookie();
+    if (override) return override;
+  }
   return session?.user?.role;
 }
 

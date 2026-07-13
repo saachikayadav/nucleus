@@ -2,8 +2,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { useSummary, usePermission } from '@/hooks';
+import { useSummary, usePermission, useRole } from '@/hooks';
 import { ROLE_LABELS, PERMISSIONS } from '@/lib/rbac';
+import { DEV_ROLE_SWITCH_ENABLED, readDevRoleCookie, clearDevRoleCookie } from '@/lib/devRole';
 
 interface NavItem {
   href: string;
@@ -67,7 +68,9 @@ const NAV: NavGroup[] = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const role = useRole();
   const canViewOperations = usePermission(PERMISSIONS.OPERATIONS_VIEW);
+  const isTestOverride = DEV_ROLE_SWITCH_ENABLED && !!readDevRoleCookie();
   const { data: summary } = useSummary(canViewOperations);
   const redCount = summary?.triage_distribution?.Red?.count ?? 0;
   const nav = canViewOperations ? NAV : PATIENT_NAV;
@@ -125,10 +128,18 @@ export default function Sidebar() {
           <div>
             <div className="user-name">{session?.user?.name ?? 'User'}</div>
             <div className="user-role">
-              {session?.user?.role ? ROLE_LABELS[session.user.role] : ''} · Click to sign out
+              {role ? ROLE_LABELS[role] : ''}{isTestOverride ? ' (TEST)' : ''} · Click to sign out
             </div>
           </div>
         </div>
+        {isTestOverride && (
+          <div
+            onClick={(e) => { e.stopPropagation(); clearDevRoleCookie(); window.location.reload(); }}
+            style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', textAlign: 'center', marginTop: 6, cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            Clear test role
+          </div>
+        )}
       </div>
     </aside>
   );
