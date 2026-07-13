@@ -2,8 +2,10 @@
 import { useSummary, useAllSessions } from '@/hooks';
 import { useNucleusStore } from '@/store/useNucleusStore';
 import { pwatColor, triageClass, depthSeverityColor, formatDate, formatTime } from '@/lib/utils';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { MetricInfo, METRIC_DESCRIPTIONS as info } from '@/components/ui/MetricInfo';
+import { motion, useMotionValue, useTransform, animate, type Variants } from 'framer-motion';
 import { useState, useEffect } from 'react';
+
 
 // --- 1. HUD Number Ticker Component ---
 function AnimatedNumber({ value, decimals = 0 }: { value: any, decimals?: number }) {
@@ -22,12 +24,9 @@ function AnimatedNumber({ value, decimals = 0 }: { value: any, decimals?: number
 }
 
 // --- Valkyra Nucleus Animation Variants ---
-const staggerReveal = {
-  hidden: { opacity: 0, y: 12 },
+const staggerReveal: Variants = {
   show: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.05, duration: 0.4, ease: "easeOut" },
+    transition: { ease: "easeOut" as const },  // ← string literal, not generic string
   }),
 };
 
@@ -44,11 +43,11 @@ function ScannerSweep() {
   );
 }
 
-function MetricCard({ label, value, sub, color, bg, decimals = 0 }: any) {
+function MetricCard({ label, description, value, sub, color, bg, decimals = 0 }: any) {
   return (
-    <div className={`metric-card ${bg} relative transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] overflow-hidden`}>
+    <div className={`metric-card ${bg} relative transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]`}>
       <ScannerSweep />
-      <div className="metric-label relative z-10">{label}</div>
+      <div className="metric-label relative z-10"><MetricInfo label={label} description={description} /></div>
       <div className={`metric-value ${color} relative z-10`}>
         <AnimatedNumber value={value} decimals={decimals} />
       </div>
@@ -113,16 +112,16 @@ export default function OverviewPage() {
 
       <div className="metrics-grid">
         <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal}>
-          <MetricCard label="Total Cases" value={sumLoading ? '—' : totalCases} sub='<span style="color:var(--text3)">All sessions recorded</span>' color="cv-blue" bg="mc-blue" />
+          <MetricCard label="Total Cases" description={info.totalCases} value={sumLoading ? '—' : totalCases} sub='<span style="color:var(--text3)">All sessions recorded</span>' color="cv-blue" bg="mc-blue" />
         </motion.div>
         <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal}>
-          <MetricCard label="Avg PWAT Score" value={sumLoading ? '—' : avgPwat} decimals={2} sub={`<span style="color:var(--text3)">Min ${minPwat} · Max ${maxPwat}</span>`} color="cv-amber" bg="mc-amber" />
+          <MetricCard label="Avg PWAT Score" description={info.avgPwat} value={sumLoading ? '—' : avgPwat} decimals={2} sub={`<span style="color:var(--text3)">Min ${minPwat} · Max ${maxPwat}</span>`} color="cv-amber" bg="mc-amber" />
         </motion.div>
         <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal}>
-          <MetricCard label="Critical (Red)" value={sumLoading ? '—' : redCount} sub={redCount > 0 ? '<span class="delta-down">⚠ Immediate attention required</span>' : '<span class="delta-up">No critical cases</span>'} color="cv-red" bg="mc-red" />
+          <MetricCard label="Critical (Red)" description={info.critical} value={sumLoading ? '—' : redCount} sub={redCount > 0 ? '<span class="delta-down">⚠ Immediate attention required</span>' : '<span class="delta-up">No critical cases</span>'} color="cv-red" bg="mc-red" />
         </motion.div>
         <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal}>
-          <MetricCard label="Max PWAT Score" value={sumLoading ? '—' : maxPwat} sub='<span style="color:var(--text3)">Highest severity recorded</span>' color="cv-cyan" bg="mc-cyan" />
+          <MetricCard label="Max PWAT Score" description={info.maxPwat} value={sumLoading ? '—' : maxPwat} sub='<span style="color:var(--text3)">Highest severity recorded</span>' color="cv-cyan" bg="mc-cyan" />
         </motion.div>
       </div>
 
@@ -130,7 +129,7 @@ export default function OverviewPage() {
         <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal} className="card relative overflow-hidden">
           <ScannerSweep />
           <div className="card-header relative z-10">
-            <span className="card-title">Triage Distribution · All Cases</span>
+            <span className="card-title"><MetricInfo label="Triage Distribution" description={info.triage}>Triage Distribution · All Cases</MetricInfo></span>
             <span className="badge badge-live"><AnimatedNumber value={totalCases} /> CASES</span>
           </div>
           <div className="chart-area relative z-10">
@@ -184,7 +183,7 @@ export default function OverviewPage() {
         <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal} className="card relative overflow-hidden">
           <ScannerSweep />
           <div className="card-header relative z-10">
-            <span className="card-title">PWAT Score Breakdown</span>
+            <span className="card-title"><MetricInfo label="PWAT Score Breakdown" description={info.pwatDistribution} /></span>
             <span className="badge badge-ai">AI SCORED</span>
           </div>
           <div className="injury-list relative z-10">

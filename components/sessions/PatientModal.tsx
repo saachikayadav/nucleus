@@ -4,6 +4,7 @@ import { usePatient } from '@/hooks';
 import { pwatColor, depthSeverityColor, formatDate } from '@/lib/utils';
 import { gcsImageUrl as gcsImg, gcsTextUrl as gcsTxt } from '@/lib/api';
 import { useState } from 'react';
+import { MetricInfo, METRIC_DESCRIPTIONS as info } from '@/components/ui/MetricInfo';
 
 function imgTile(path: string, label: string, onOpen: (p: string, l: string) => void) {
   if (!path) return null;
@@ -34,8 +35,11 @@ export default function PatientModal() {
   const activePatientId = useNucleusStore((s) => s.activePatientId);
   const setActivePatientId = useNucleusStore((s) => s.setActivePatientId);
   const { data: patient, isLoading } = usePatient(activePatientId);
+  
   const [lightbox, setLightbox] = useState<{ path: string; title: string } | null>(null);
   const [reportText, setReportText] = useState<string | null>(null);
+  // NEW: Track which frame the user is viewing
+  const [activeFrameIndex, setActiveFrameIndex] = useState(0);
 
   if (!activePatientId) return null;
 
@@ -52,9 +56,20 @@ export default function PatientModal() {
     }
   };
 
-  const s = patient;
-  const wm: any = s?.wound_metrics ?? {};
-  const gcs: any = s?.gcs_outputs ?? {};
+  const s: any = patient;
+  
+  // NEW: Dynamic Data Mapping (Fallback to session data if no frames exist)
+  const frames = s?.frames || [];
+  const activeFrame = frames.length > 0 ? frames[activeFrameIndex] : null;
+
+  const displayPwat = activeFrame?.pwat_score ?? s?.pwat_score ?? '—';
+  const displayTriage = activeFrame?.triage ?? s?.triage_category;
+  const displayDepthSeverity = activeFrame?.depth_severity ?? s?.wound_metrics?.depth_severity ?? '—';
+  const displayArea = activeFrame?.area_pct ?? s?.wound_metrics?.area_pct;
+  const displayDepthMean = activeFrame?.depth_mean ?? s?.wound_metrics?.depth_mean;
+  const displaySourceImage = activeFrame?.source_image ?? s?.source_image ?? '—';
+  const displayGemini = activeFrame?.gemini_text ?? s?.gemini_analysis ?? 'No analysis available.';
+  const gcs: any = activeFrame?.gcs_outputs ?? s?.gcs_outputs ?? {};
 
   return (
     <>
@@ -64,11 +79,11 @@ export default function PatientModal() {
             <div>
               <div className="modal-title">{isLoading ? 'Loading...' : `Case: ${s?.session_id}`}</div>
               <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 2 }}>
-                {s?.source_image ?? '—'}
+                {displaySourceImage}
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {s && <span className={`triage-badge triage-${s.triage_category}`}>{s.triage_category}</span>}
+              {displayTriage && <span className={`triage-badge triage-${displayTriage}`}>{displayTriage}</span>}
               <div className="modal-close" onClick={() => setActivePatientId(null)}>✕</div>
             </div>
           </div>
@@ -81,45 +96,75 @@ export default function PatientModal() {
               </>
             ) : s ? (
               <>
+                {/* NEW: Frame Selector UI */}
+                {frames.length > 1 && (
+                  <div style={{ marginBottom: 16, padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Captured Frames</div>
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                      {frames.map((f: any, i: number) => (
+                        <button
+                          key={i}
+                          onClick={() => setActiveFrameIndex(i)}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontFamily: 'var(--mono)',
+                            cursor: 'pointer',
+                            border: activeFrameIndex === i ? '1px solid rgba(96,165,250,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                            background: activeFrameIndex === i ? 'rgba(96,165,250,0.1)' : 'transparent',
+                            color: activeFrameIndex === i ? '#60a5fa' : 'var(--text2)',
+                            transition: 'all 0.2s',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          Frame {f.frame_index ?? i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="patient-detail">
                   <div className="patient-field">
-                    <div className="patient-field-label">PWAT Score</div>
-                    <div className="patient-field-value" style={{ fontSize: 22, fontWeight: 700, color: pwatColor(s.pwat_score) }}>{s.pwat_score ?? '—'}</div>
+                    <div className="patient-field-label"><MetricInfo label="PWAT Score" description={info.pwat} /></div>
+                    <div className="patient-field-value" style={{ fontSize: 22, fontWeight: 700, color: pwatColor(displayPwat) }}>{displayPwat}</div>
                   </div>
                   <div className="patient-field">
-                    <div className="patient-field-label">Triage Category</div>
-                    <div className="patient-field-value"><span className={`triage-badge triage-${s.triage_category}`}>{s.triage_category}</span></div>
+                    <div className="patient-field-label"><MetricInfo label="Triage Category" description={info.triage} /></div>
+                    <div className="patient-field-value"><span className={`triage-badge triage-${displayTriage}`}>{displayTriage}</span></div>
                   </div>
                   <div className="patient-field">
                     <div className="patient-field-label">Recorded At</div>
-                    <div className="patient-field-value" style={{ fontSize: 12 }}>{formatDate(s.created_at)}</div>
+                    {/* Keep Date tied to the session level created_at */}
+                    <div className="patient-field-value" style={{ fontSize: 12 }}>{formatDate(s.created_at)}</div> 
                   </div>
                   <div className="patient-field">
-                    <div className="patient-field-label">Depth Severity</div>
-                    <div className="patient-field-value" style={{ color: depthSeverityColor(wm.depth_severity ?? null) }}>{wm.depth_severity ?? '—'}</div>
+                    <div className="patient-field-label"><MetricInfo label="Depth Severity" description={info.depthSeverity} /></div>
+                    <div className="patient-field-value" style={{ color: depthSeverityColor(displayDepthSeverity === '—' ? null : displayDepthSeverity) }}>{displayDepthSeverity}</div>
                   </div>
-                  {wm.area_pct != null && (
+                  {displayArea != null && (
                     <div className="patient-field">
-                      <div className="patient-field-label">Wound Area %</div>
-                      <div className="patient-field-value">{Number(wm.area_pct).toFixed(1)}%</div>
+                      <div className="patient-field-label"><MetricInfo label="Wound Area %" description={info.woundArea} /></div>
+                      <div className="patient-field-value">{Number(displayArea).toFixed(1)}%</div>
                     </div>
                   )}
-                  {wm.depth_mean != null && (
+                  {displayDepthMean != null && (
                     <div className="patient-field">
-                      <div className="patient-field-label">Depth Mean</div>
-                      <div className="patient-field-value">{Number(wm.depth_mean).toFixed(3)}</div>
+                      <div className="patient-field-label"><MetricInfo label="Depth Mean" description={info.depthMean} /></div>
+                      <div className="patient-field-value">{Number(displayDepthMean).toFixed(3)}</div>
                     </div>
                   )}
                 </div>
 
                 <div style={{ marginBottom: 14, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 8 }}>
-                  <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Source Image</div>
-                  <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text2)', wordBreak: 'break-all' }}>{s.source_image || '—'}</div>
+                  <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Source Image (Frame {activeFrameIndex + 1})</div>
+                  <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text2)', wordBreak: 'break-all' }}>{displaySourceImage}</div>
                 </div>
 
                 <div>
                   <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>Gemini Clinical Analysis</div>
-                  <div className="gemini-box">{s.gemini_analysis || 'No analysis available.'}</div>
+                  <div className="gemini-box">{displayGemini}</div>
                 </div>
 
                 <div style={{ marginTop: 20 }}>

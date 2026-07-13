@@ -2,6 +2,7 @@
 import { useSummary, useAllSessions } from '@/hooks';
 import { bucketPwat, groupByDate, pwatColor, triageColor } from '@/lib/utils';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { DescribedMetricCard, MetricInfo, METRIC_DESCRIPTIONS as info } from '@/components/ui/MetricInfo';
 
 const TRIAGE_COLORS: Record<string,string> = { Red:'#f87171', Orange:'#fbbf24', Yellow:'#fde047', Green:'#4ade80' };
 
@@ -39,15 +40,15 @@ export default function AnalyticsPage() {
   return (
     <>
       <div className="metrics-grid">
-        <div className="metric-card mc-blue"><div className="metric-label">Total Cases</div><div className="metric-value cv-blue">{sl ? '—' : total}</div></div>
-        <div className="metric-card mc-amber"><div className="metric-label">Avg PWAT</div><div className="metric-value cv-amber">{sl ? '—' : Number(avg).toFixed(2)}</div></div>
-        <div className="metric-card mc-red"><div className="metric-label">High Priority</div><div className="metric-value cv-red">{sl ? '—' : red + (triage.Orange?.count ?? 0)}<span style={{fontSize:14,color:'var(--text3)',fontWeight:400}}> Red+Orange</span></div></div>
-        <div className="metric-card mc-cyan"><div className="metric-label">Stable (Green)</div><div className="metric-value cv-green">{sl ? '—' : green}</div></div>
+        <DescribedMetricCard label="Total Cases" description={info.totalCases} value={sl ? '—' : total} color="cv-blue" bg="mc-blue" />
+        <DescribedMetricCard label="Avg PWAT" description={info.avgPwat} value={sl ? '—' : Number(avg).toFixed(2)} color="cv-amber" bg="mc-amber" />
+        <DescribedMetricCard label="High Priority" description={info.highPriority} value={<>{sl ? '—' : red + (triage.Orange?.count ?? 0)}<span style={{fontSize:14,color:'var(--text3)',fontWeight:400}}> Red+Orange</span></>} color="cv-red" bg="mc-red" />
+        <DescribedMetricCard label="Stable (Green)" description={info.stable} value={sl ? '—' : green} color="cv-green" bg="mc-cyan" />
       </div>
 
       <div className="mid-grid" style={{ marginBottom: 20 }}>
         <div className="card">
-          <div className="card-header"><span className="card-title">Triage Distribution</span><span className="badge badge-live">ALL CASES</span></div>
+          <div className="card-header"><span className="card-title"><MetricInfo label="Triage Distribution" description={info.triage} /></span><span className="badge badge-live">ALL CASES</span></div>
           <div style={{ padding: '20px 18px', display: 'flex', alignItems: 'center', gap: 24 }}>
             {pieData.length > 0 ? (
               <>
@@ -75,7 +76,7 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="card">
-          <div className="card-header"><span className="card-title">PWAT Score Distribution</span><span className="badge badge-ai">AI SCORED</span></div>
+          <div className="card-header"><span className="card-title"><MetricInfo label="PWAT Score Distribution" description={info.pwatDistribution} /></span><span className="badge badge-ai">AI SCORED</span></div>
           <div style={{ padding: '16px 18px' }}>
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={pwatBuckets} barSize={20}>
@@ -93,7 +94,7 @@ export default function AnalyticsPage() {
 
       <div className="mid-grid">
         <div className="card">
-          <div className="card-header"><span className="card-title">Sessions Over Time</span><span className="badge badge-cyan">TIMELINE</span></div>
+          <div className="card-header"><span className="card-title"><MetricInfo label="Sessions Over Time" description={info.sessionsOverTime} /></span><span className="badge badge-cyan">TIMELINE</span></div>
           <div style={{ padding: '16px 18px' }}>
             {timeData.length > 0 ? (
               <ResponsiveContainer width="100%" height={160}>
@@ -110,7 +111,7 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="card">
-          <div className="card-header"><span className="card-title">Depth Severity Breakdown</span><span className="badge badge-warn">WOUND DEPTH</span></div>
+          <div className="card-header"><span className="card-title"><MetricInfo label="Depth Severity Breakdown" description={info.depthSeverity} /></span><span className="badge badge-warn">WOUND DEPTH</span></div>
           <div style={{ padding: '16px 18px' }}>
             {depthData.length > 0 ? (
               <ResponsiveContainer width="100%" height={160}>
