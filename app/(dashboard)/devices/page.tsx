@@ -4,6 +4,8 @@ import { DEVICES } from '@/config/fleet';
 
 type FilterType = 'all' | 'LIVE' | 'ONLINE' | 'IDLE' | 'OFFLINE';
 
+const batteryColor = (pct: number) => pct >= 60 ? 'var(--green)' : pct >= 30 ? 'var(--amber)' : 'var(--red)';
+
 export default function DevicesPage() {
   const [filter, setFilter] = useState<FilterType>('all');
 
@@ -14,8 +16,6 @@ export default function DevicesPage() {
   const filtered = filter === 'all' ? DEVICES : DEVICES.filter(d => d.status === filter);
 
   const dotClass = (s: string) => s === 'LIVE' || s === 'ONLINE' ? 'd-online' : s === 'IDLE' ? 'd-idle' : 'd-offline';
-  const timeClass = (s: string) => s === 'LIVE' || s === 'ONLINE' ? 'live' : '';
-  const timeColor = (s: string) => s === 'IDLE' ? 'var(--amber)' : '';
 
   const onlinePct = Math.round((totalOnline / total) * 100);
   const r = 40, circ = 2 * Math.PI * r;
@@ -58,13 +58,23 @@ export default function DevicesPage() {
           <span className="card-title">AR Device Fleet · XREAL Systems</span>
           <span style={{ fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)' }}>{filtered.length} devices</span>
         </div>
+        <div style={{ overflowX:'auto' }}>
         <table className="data-table">
-          <thead><tr><th>Device</th><th>Model</th><th>Assigned To</th><th>Unit</th><th>Status</th><th>Last Active</th></tr></thead>
+          <thead><tr><th>Device</th><th>Model</th><th>Firmware</th><th>Battery</th><th>Assigned To</th><th>Unit</th><th>Status</th><th>Last Sync</th></tr></thead>
           <tbody>
             {filtered.map(d => (
               <tr key={d.id}>
                 <td style={{ fontFamily:'var(--mono)', fontSize:12, fontWeight:700, color:'var(--text)' }}>{d.serial}</td>
                 <td style={{ color:'var(--text)' }}>{d.model}</td>
+                <td style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)' }}>{d.firmware}</td>
+                <td>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <div style={{ width:44, height:5, borderRadius:3, background:'rgba(255,255,255,0.06)', overflow:'hidden' }}>
+                      <div style={{ width:`${d.battery_pct}%`, height:'100%', borderRadius:3, background:batteryColor(d.battery_pct) }} />
+                    </div>
+                    <span style={{ fontSize:11, fontFamily:'var(--mono)', fontWeight:600, color:batteryColor(d.battery_pct) }}>{d.battery_pct}%</span>
+                  </div>
+                </td>
                 <td style={{ fontFamily:'var(--mono)', fontSize:11 }}>{d.assigned_to}</td>
                 <td style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)' }}>{d.unit}</td>
                 <td>
@@ -73,11 +83,12 @@ export default function DevicesPage() {
                     <span style={{ fontSize:10, fontFamily:'var(--mono)', color: d.status==='LIVE'||d.status==='ONLINE' ? 'var(--green)' : d.status==='IDLE' ? 'var(--amber)' : 'var(--text3)' }}>{d.status}</span>
                   </div>
                 </td>
-                <td style={{ fontFamily:'var(--mono)', fontSize:11, color:d.status==='LIVE'?'var(--green)':'var(--text3)' }}>{d.last_active ?? d.status}</td>
+                <td style={{ fontFamily:'var(--mono)', fontSize:11, color:d.status==='LIVE'?'var(--green)':'var(--text3)' }}>{d.last_sync}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </>
   );
