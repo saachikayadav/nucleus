@@ -8,6 +8,8 @@ export const PERMISSIONS = {
   // Reports, Responders, AR Devices, AI Performance, Heatmaps) — these show
   // aggregate/all-patient data, so patients don't get this permission.
   OPERATIONS_VIEW: 'operations:view',
+  // Assigning/unassigning AR headsets to responders — admin only.
+  DEVICES_MANAGE: 'devices:manage',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

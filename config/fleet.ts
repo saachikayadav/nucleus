@@ -9,11 +9,11 @@ export const RESPONDERS: Responder[] = [
 ];
 
 export const DEVICES: Device[] = [
-  { id: 'xreal-07', model: 'XREAL Air 2 Ultra', serial: '#07', assigned_to: 'SGT. M. Torres', unit: 'Unit 4', status: 'LIVE',    firmware: 'v2.4.1', last_sync: '30s ago', battery_pct: 94 },
-  { id: 'xreal-14', model: 'XREAL One Pro',     serial: '#14', assigned_to: 'CPL. A. Chen',   unit: 'Unit 2', status: 'LIVE',    firmware: 'v2.4.1', last_sync: '1m ago',  battery_pct: 87 },
-  { id: 'xreal-03', model: 'XREAL Air 2 Ultra', serial: '#03', assigned_to: 'PFC. D. Reyes',  unit: 'Unit 1', status: 'ONLINE',  firmware: 'v2.3.8', last_sync: '2m ago',  battery_pct: 76 },
-  { id: 'xreal-22', model: 'XREAL One Pro',     serial: '#22', assigned_to: 'SGT. L. Park',   unit: 'Unit 6', status: 'IDLE',    firmware: 'v2.3.8', last_sync: '18m ago', battery_pct: 41 },
-  { id: 'xreal-11', model: 'XREAL Air 2 Ultra', serial: '#11', assigned_to: 'CPL. R. James',  unit: 'Unit 3', status: 'OFFLINE', firmware: 'v2.2.0', last_sync: '3h ago',  battery_pct: 12 },
+  { id: 'xreal-07', model: 'XREAL Air 2 Ultra', serial: '#07', unit: 'Unit 4', status: 'LIVE',    firmware: 'v2.4.1', last_sync: '30s ago', battery_pct: 94, sync_failed: false },
+  { id: 'xreal-14', model: 'XREAL One Pro',     serial: '#14', unit: 'Unit 2', status: 'LIVE',    firmware: 'v2.4.1', last_sync: '1m ago',  battery_pct: 87, sync_failed: false },
+  { id: 'xreal-03', model: 'XREAL Air 2 Ultra', serial: '#03', unit: 'Unit 1', status: 'ONLINE',  firmware: 'v2.3.8', last_sync: '2m ago',  battery_pct: 76, sync_failed: false },
+  { id: 'xreal-22', model: 'XREAL One Pro',     serial: '#22', unit: 'Unit 6', status: 'IDLE',    firmware: 'v2.3.8', last_sync: '18m ago', battery_pct: 41, sync_failed: true  },
+  { id: 'xreal-11', model: 'XREAL Air 2 Ultra', serial: '#11', unit: 'Unit 3', status: 'OFFLINE', firmware: 'v2.2.0', last_sync: '3h ago',  battery_pct: 12, sync_failed: false },
 ];
 
 export const INCIDENT_TYPES = [

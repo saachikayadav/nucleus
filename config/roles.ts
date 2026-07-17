@@ -16,7 +16,7 @@ export type Role = 'admin' | 'doctor' | 'patient';
 export const DEFAULT_ROLE: Role = 'patient';
 
 export const ROLE_ASSIGNMENTS: Record<string, Role> = {
-  // 'you@example.com': 'admin',
+  'saachika.yadav@valkyratechnologies.com': 'admin',
   // 'doctor@example.com': 'doctor',
 };
 

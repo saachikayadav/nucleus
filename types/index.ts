@@ -87,12 +87,12 @@ export interface Device {
   id: string;
   model: string;
   serial: string;
-  assigned_to: string;
   unit: string;
   status: 'LIVE' | 'ONLINE' | 'IDLE' | 'OFFLINE';
   firmware: string;
   last_sync: string;
   battery_pct: number;
+  sync_failed: boolean;
 }
 
 export interface Toast {

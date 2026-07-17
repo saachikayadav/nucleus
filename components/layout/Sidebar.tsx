@@ -5,6 +5,8 @@ import { useSession, signOut } from 'next-auth/react';
 import { useSummary, usePermission, useRole } from '@/hooks';
 import { ROLE_LABELS, PERMISSIONS } from '@/lib/rbac';
 import { DEV_ROLE_SWITCH_ENABLED, readDevRoleCookie, clearDevRoleCookie } from '@/lib/devRole';
+import { DEVICES } from '@/config/fleet';
+import { getDeviceAlerts } from '@/lib/deviceAlerts';
 
 interface NavItem {
   href: string;
@@ -47,14 +49,16 @@ const NAV: NavGroup[] = [
     items: [
       { href: '/reports',    label: 'Incident Reports', icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 7h6M5 10h4"/></svg> },
       { href: '/responders', label: 'Responders',       icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="5" r="2.5"/><path d="M2.5 14c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/></svg> },
-      { href: '/devices',    label: 'AR Devices',       icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="4" width="10" height="8" rx="1.5"/><path d="M11 7l4 2-4 2V7z"/></svg> },
+      { href: '/devices',    label: 'AR Devices',       icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="4" width="10" height="8" rx="1.5"/><path d="M11 7l4 2-4 2V7z"/></svg>, badge: true },
     ],
   },
   {
     section: 'Intelligence',
     items: [
-      { href: '/ai-performance', label: 'AI Performance', icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 5.5v3l1.5 1.5"/></svg> },
-      { href: '/heatmaps',       label: 'Heatmaps',       icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 11l3-4 3 3 2.5-4L14 2"/><path d="M2 14h12"/></svg> },
+      { href: '/ai-performance', label: 'AI Performance',      icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 5.5v3l1.5 1.5"/></svg> },
+      { href: '/escalations',    label: 'Escalation Frequency', icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 2L14.5 13.5H1.5L8 2Z"/><path d="M8 6.5v3M8 11.5h.01"/></svg> },
+      { href: '/mortality',      label: 'Mortality Rate',       icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 13.5S2 9.7 2 5.9A2.6 2.6 0 0 1 6.9 4.3 2.6 2.6 0 0 1 8 5.3 2.6 2.6 0 0 1 9.1 4.3 2.6 2.6 0 0 1 14 5.9C14 9.7 8 13.5 8 13.5Z"/><path d="M4 8h2l1-2 2 4 1-2h2"/></svg> },
+      { href: '/heatmaps',       label: 'Heatmaps',            icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 11l3-4 3 3 2.5-4L14 2"/><path d="M2 14h12"/></svg> },
     ],
   },
   {
@@ -73,6 +77,8 @@ export default function Sidebar() {
   const isTestOverride = DEV_ROLE_SWITCH_ENABLED && !!readDevRoleCookie();
   const { data: summary } = useSummary(canViewOperations);
   const redCount = summary?.triage_distribution?.Red?.count ?? 0;
+  const deviceAlertCount = getDeviceAlerts(DEVICES).length;
+  const badgeCounts: Record<string, number> = { '/incidents': redCount, '/devices': deviceAlertCount };
   const nav = canViewOperations ? NAV : PATIENT_NAV;
 
   const initials = session?.user?.name
@@ -109,8 +115,8 @@ export default function Sidebar() {
               >
                 {item.icon}
                 {item.label}
-                {item.badge && redCount > 0 && (
-                  <span className="nav-badge">{redCount}</span>
+                {item.badge && (badgeCounts[item.href] ?? 0) > 0 && (
+                  <span className="nav-badge">{badgeCounts[item.href]}</span>
                 )}
               </Link>
             ))}

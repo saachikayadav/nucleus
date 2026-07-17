@@ -15,6 +15,8 @@ const TITLES: Record<string, string> = {
   '/devices':        'AR Devices',
   '/ai-performance': 'AI Performance',
   '/heatmaps':       'Heatmaps',
+  '/escalations':    'Escalation Frequency',
+  '/mortality':      'Mortality Rate',
   '/settings':       'Settings',
   '/my-sessions':    'My Sessions',
 };

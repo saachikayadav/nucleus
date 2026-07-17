@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Session, Toast, TriageCategory } from '@/types';
+import { DeviceAssignments, getDefaultAssignments } from '@/lib/deviceAssignments';
 
 interface NucleusStore {
   // Cached sessions
@@ -32,6 +33,11 @@ interface NucleusStore {
   toasts: Toast[];
   addToast: (t: Omit<Toast, 'id'>) => void;
   removeToast: (id: string) => void;
+
+  // Device ↔ responder assignments (persisted)
+  deviceAssignments: DeviceAssignments;
+  assignDevice: (deviceId: string, responderId: string) => void;
+  unassignDevice: (deviceId: string) => void;
 }
 
 export const useNucleusStore = create<NucleusStore>()(
@@ -63,6 +69,19 @@ export const useNucleusStore = create<NucleusStore>()(
         })),
       removeToast: (id) =>
         set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
+
+      deviceAssignments: getDefaultAssignments(),
+      assignDevice: (deviceId, responderId) =>
+        set((state) => {
+          const next: DeviceAssignments = {};
+          Object.entries(state.deviceAssignments).forEach(([dId, rId]) => {
+            next[dId] = rId === responderId ? null : rId;
+          });
+          next[deviceId] = responderId;
+          return { deviceAssignments: next };
+        }),
+      unassignDevice: (deviceId) =>
+        set((state) => ({ deviceAssignments: { ...state.deviceAssignments, [deviceId]: null } })),
     }),
     {
       name: 'nucleus-store',
@@ -70,6 +89,7 @@ export const useNucleusStore = create<NucleusStore>()(
         refreshInterval: state.refreshInterval,
         sessionsPerPage: state.sessionsPerPage,
         triageFilter: state.triageFilter,
+        deviceAssignments: state.deviceAssignments,
       }),
     }
   )

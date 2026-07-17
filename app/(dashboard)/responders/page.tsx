@@ -1,6 +1,8 @@
 'use client';
 import { RESPONDERS } from '@/config/fleet';
 import { useIncidents } from '@/hooks';
+import { useNucleusStore } from '@/store/useNucleusStore';
+import { getDeviceForResponder } from '@/lib/deviceAssignments';
 
 const STATUS_CONFIG: Record<string, { cls: string; dot: string; label: string }> = {
   LIVE:    { cls: 'status-live',    dot: 'd-online',  label: 'LIVE' },
@@ -14,6 +16,7 @@ const usageColor = (pct: number) => pct >= 75 ? 'var(--green)' : pct >= 50 ? 'va
 export default function RespondersPage() {
   const { data: incidentsData } = useIncidents();
   const incidents = incidentsData?.incidents ?? [];
+  const assignments = useNucleusStore((s) => s.deviceAssignments);
 
   const active  = RESPONDERS.filter(r => r.status === 'LIVE' || r.status === 'ONLINE').length;
   const idle    = RESPONDERS.filter(r => r.status === 'IDLE').length;
@@ -41,6 +44,7 @@ export default function RespondersPage() {
         {RESPONDERS.map(r => {
           const sc = STATUS_CONFIG[r.status];
           const handled = incidentsHandled(r.name);
+          const device = getDeviceForResponder(r.id, assignments);
           return (
             <div key={r.id} className="responder-card">
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:12 }}>
@@ -54,7 +58,7 @@ export default function RespondersPage() {
                 <div style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)', letterSpacing:2, marginBottom:6, textTransform:'uppercase' }}>Assigned Device</div>
                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                   <div className={`d-status ${sc.dot}`} />
-                  <span style={{ fontSize:11, fontFamily:'var(--mono)', color:'var(--text2)' }}>{r.device_id}</span>
+                  <span style={{ fontSize:11, fontFamily:'var(--mono)', color:'var(--text2)' }}>{device ? `${device.model} ${device.serial}` : 'Unassigned'}</span>
                 </div>
               </div>
 

@@ -13,6 +13,8 @@ const OPERATIONS_ROUTES = [
   '/devices',
   '/ai-performance',
   '/heatmaps',
+  '/escalations',
+  '/mortality',
 ];
 
 export default withAuth(
