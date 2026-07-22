@@ -24,6 +24,11 @@ const NAV = [
   {
     section: 'Intelligence',
     items: [
+      { href: '/training-intel',    label: 'Training Intelligence',       icon: (
+              <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>
+              </svg>
+            ) },
       { href: '/ai-performance', label: 'AI Performance', icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 5.5v3l1.5 1.5"/></svg> },
       { href: '/heatmaps',       label: 'Heatmaps',       icon: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 11l3-4 3 3 2.5-4L14 2"/><path d="M2 14h12"/></svg> },
     ],

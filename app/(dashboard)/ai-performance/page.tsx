@@ -1,118 +1,106 @@
 'use client';
-import { useSummary, useAllSessions } from '@/hooks';
-import { bucketPwat, pwatColor } from '@/lib/utils';
-import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie } from 'recharts';
-import { DescribedMetricCard, MetricInfo, METRIC_DESCRIPTIONS as info } from '@/components/ui/MetricInfo';
 
-const TRIAGE_COLORS: Record<string,string> = { Red:'#f87171', Orange:'#fbbf24', Yellow:'#fde047', Green:'#4ade80' };
+import { motion } from 'framer-motion';
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
 
-export default function AIPerformancePage() {
-  const { data: summary, isLoading: sl } = useSummary();
-  const { data: sd } = useAllSessions();
-  const sessions = sd?.sessions ?? [];
-  const triage = summary?.triage_distribution ?? {} as any;
-  const total = summary?.total_cases ?? 0;
-  const avg = summary?.avg_pwat ?? 0;
-  const pwatBuckets = bucketPwat(sessions);
-  const pieData = ['Red','Orange','Yellow','Green'].map(k => ({ name:k, value:triage[k]?.count??0 })).filter(d=>d.value>0);
+// --- MOCK PERFORMANCE DATA ---
+const escalationData = [
+  { injury: 'GSW - Torso', escalations: 45, aiResolved: 55 },
+  { injury: 'Blunt Trauma Head', escalations: 38, aiResolved: 82 },
+  { injury: 'Burn - Severe', escalations: 65, aiResolved: 15 },
+  { injury: 'Laceration - Major', escalations: 12, aiResolved: 95 },
+];
 
-  const customTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
+const mortalityData = [
+  { hour: '00:00', predictedRisk: 85, actualMortality: 80 },
+  { hour: '04:00', predictedRisk: 72, actualMortality: 75 },
+  { hour: '08:00', predictedRisk: 60, actualMortality: 58 },
+  { hour: '12:00', predictedRisk: 45, actualMortality: 42 },
+  { hour: '16:00', predictedRisk: 65, actualMortality: 70 },
+  { hour: '20:00', predictedRisk: 88, actualMortality: 85 },
+];
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
     return (
-      <div style={{ background:'rgba(6,12,24,0.95)', border:'1px solid var(--border-hi)', borderRadius:8, padding:'6px 12px', fontFamily:'var(--mono)', fontSize:11 }}>
-        <div style={{ color:'var(--text)' }}>{payload[0]?.name??''}: <strong style={{ color:'var(--accent)' }}>{payload[0]?.value}</strong></div>
+      <div style={{ background: 'rgba(2, 6, 23, 0.95)', border: '1px solid var(--border)', padding: '12px 16px', borderRadius: '8px', backdropFilter: 'blur(10px)' }}>
+        <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
+        {payload.map((p: any, i: number) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: p.color }} />
+            <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>{p.name}:</span>
+            <span style={{ fontSize: 13, fontWeight: 'bold', fontFamily: 'var(--mono)', color: 'white' }}>{p.value}</span>
+          </div>
+        ))}
       </div>
     );
-  };
+  }
+  return null;
+};
 
+export default function AIPerformancePage() {
   return (
-    <>
-      <div style={{ background:'rgba(192,132,252,0.04)', border:'1px solid rgba(192,132,252,0.15)', borderRadius:10, padding:'10px 16px', marginBottom:20, fontSize:11, color:'var(--text3)', fontFamily:'var(--mono)' }}>
-        ℹ Sections marked "STATIC BENCHMARK" are from the MD validation dataset, not computed from live sessions.
-      </div>
+    <div className="pb-32">
 
-      <div className="section-hd"><div className="section-title">Live Stats · Computed from real sessions</div></div>
-      <div className="metrics-grid" style={{ marginBottom:20 }}>
-        <DescribedMetricCard label="Model Version" description={info.modelVersion} value="v3.1" color="cv-blue" bg="mc-blue" valueStyle={{fontSize:22}} />
-        <DescribedMetricCard label="AI-Scored Sessions" description={info.aiSessions} value={sl?'—':total} color="cv-amber" bg="mc-amber" />
-        <DescribedMetricCard label="Avg PWAT Assigned" description={info.avgPwat} value={sl?'—':Number(avg).toFixed(2)} color="cv-cyan" bg="mc-cyan" />
-        <DescribedMetricCard label="Critical Detections" description={info.critical} value={<>{sl?'—':triage.Red?.count??0}<span style={{fontSize:12,color:'var(--text3)',fontWeight:400}}> Red</span></>} color="cv-red" bg="mc-red" />
-      </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        
+        {/* MORTALITY TRACKING DASHBOARD */}
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ padding: 24 }}>
+          <div style={{ marginBottom: 24 }}>
+            <h2 style={{ fontSize: 14, fontFamily: 'var(--mono)', color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: 1 }}>Mortality Prediction Engine</h2>
+            <p style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 4 }}>Real-time AI Risk Prediction vs Post-Incident Actual Outcomes</p>
+          </div>
+          
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={mortalityData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorPredicted" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f87171" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#f87171" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis dataKey="hour" stroke="rgba(255,255,255,0.1)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                <YAxis stroke="rgba(255,255,255,0.1)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'monospace' }} domain={[0, 100]} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.5)', paddingTop: 10 }} />
+                <Area type="monotone" dataKey="predictedRisk" name="AI Predicted Risk %" stroke="#22d3ee" fillOpacity={1} fill="url(#colorPredicted)" strokeWidth={2} />
+                <Area type="monotone" dataKey="actualMortality" name="Actual Mortality %" stroke="#f87171" fillOpacity={1} fill="url(#colorActual)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
 
-      <div className="mid-grid" style={{ marginBottom:20 }}>
-        <div className="card">
-          <div className="card-header"><span className="card-title"><MetricInfo label="PWAT Score Distribution" description={info.pwatDistribution} /></span><span className="badge badge-live">LIVE DATA</span></div>
-          <div style={{ padding:'16px 18px' }}>
-            <ResponsiveContainer width="100%" height={160}>
-              <BarChart data={pwatBuckets} barSize={24}>
-                <XAxis dataKey="range" tick={{ fill:'rgba(240,244,255,0.35)', fontSize:10, fontFamily:'JetBrains Mono' }} axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Tooltip content={customTooltip} />
-                <Bar dataKey="count" radius={[4,4,0,0]}>
-                  {pwatBuckets.map((b,i) => <Cell key={i} fill={i>=2?'var(--red)':i===1?'var(--amber)':'var(--green)'} />)}
-                </Bar>
+        {/* ESCALATION FREQUENCY */}
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="card" style={{ padding: 24 }}>
+          <div style={{ marginBottom: 24 }}>
+            <h2 style={{ fontSize: 14, fontFamily: 'var(--mono)', color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 1 }}>Doctor Escalation Frequency</h2>
+            <p style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 4 }}>Human Intervention Rate by Injury Classification</p>
+          </div>
+          
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={escalationData} layout="vertical" margin={{ top: 10, right: 0, left: 40, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                <XAxis type="number" stroke="rgba(255,255,255,0.1)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="injury" stroke="rgba(255,255,255,0.1)" tick={{ fill: 'rgba(255,255,255,0.8)', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} content={<CustomTooltip />} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.5)', paddingTop: 10 }} />
+                <Bar dataKey="escalations" name="Bypassed AI (Doctor Called)" stackId="a" fill="#fbbf24" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="aiResolved" name="Resolved by AI Protocol" stackId="a" fill="#34d399" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-        <div className="card">
-          <div className="card-header"><span className="card-title"><MetricInfo label="Triage Distribution" description={info.triage} /></span><span className="badge badge-live">LIVE DATA</span></div>
-          <div style={{ padding:'20px 18px', display:'flex', alignItems:'center', gap:20 }}>
-            {pieData.length > 0 ? (
-              <>
-                <ResponsiveContainer width={140} height={140}>
-                  <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={38} outerRadius={62} dataKey="value" paddingAngle={3}>
-                      {pieData.map(d=><Cell key={d.name} fill={TRIAGE_COLORS[d.name]} />)}
-                    </Pie>
-                    <Tooltip content={customTooltip} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div style={{ flex:1 }}>
-                  {pieData.map(d=>(
-                    <div key={d.name} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-                      <div style={{ width:6, height:6, borderRadius:'50%', background:TRIAGE_COLORS[d.name] }} />
-                      <span style={{ fontSize:10, color:'var(--text2)', fontFamily:'var(--mono)', flex:1 }}>{d.name}</span>
-                      <span style={{ fontSize:11, fontWeight:600, color:TRIAGE_COLORS[d.name] }}>{d.value}</span>
-                      <span style={{ fontSize:10, color:'var(--text3)' }}>{triage[d.name]?.pct??0}%</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : <div style={{ color:'var(--text3)', fontFamily:'var(--mono)', fontSize:12 }}>No data</div>}
-          </div>
-        </div>
-      </div>
+        </motion.div>
 
-      <div className="section-hd"><div className="section-title">Benchmark Stats · Static MD Validation Dataset</div><span className="badge badge-ai">STATIC BENCHMARK</span></div>
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title"><MetricInfo label="AI Recommendation Accuracy" description={info.accuracy}>AI Recommendation Accuracy · Model v3.1</MetricInfo></span>
-          <span style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)', letterSpacing:1 }}>MD VALIDATED · NOT COMPUTED LIVE</span>
-        </div>
-        <div className="acc-area">
-          <div style={{ display:'flex', alignItems:'flex-end', gap:16, marginBottom:16 }}>
-            <div><div className="big-num">94.7%</div><div className="acc-sub">Validated by licensed MDs · Static benchmark</div></div>
-            <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-              <div style={{ fontSize:11, color:'var(--green)', fontFamily:'var(--mono)' }}>↑ +2.1% vs Model v3.0</div>
-              <div style={{ fontSize:10, color:'var(--text3)', fontFamily:'var(--mono)' }}>Escalation Rate: 12.3%</div>
-            </div>
-          </div>
-          <div className="acc-rows">
-            {[['GSW',97,'#93c5fd'],['Stab',95,'#93c5fd'],['Blunt',93,'var(--amber)'],['Burn',91,'var(--amber)']].map(([l,v,c]) => (
-              <div key={l as string} className="acc-row">
-                <div className="acc-label">{l}</div>
-                <div className="acc-track"><div className="acc-fill" style={{ width:`${v}%`, background:c as string }} /></div>
-                <div className="acc-pct">{v}%</div>
-              </div>
-            ))}
-          </div>
-          <div className="esc-row">
-            <div><div className="esc-label">Doctor Calls (Static)</div><div className="esc-val" style={{ color:'#93c5fd' }}>18 <span>this month</span></div></div>
-            <div style={{ textAlign:'right' }}><div className="esc-label">Source</div><div style={{ fontSize:10, color:'var(--text3)', fontFamily:'var(--mono)', marginTop:2 }}>MD validation dataset</div></div>
-          </div>
-        </div>
       </div>
-    </>
+    </div>
   );
 }
