@@ -1,131 +1,254 @@
 'use client';
-import { useSummary, useAllSessions } from '@/hooks';
-import { bucketPwat, groupByDate, pwatColor, triageColor } from '@/lib/utils';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid, ResponsiveContainer } from 'recharts';
-import { DescribedMetricCard, MetricInfo, METRIC_DESCRIPTIONS as info } from '@/components/ui/MetricInfo';
 
-const TRIAGE_COLORS: Record<string,string> = { Red:'#f87171', Orange:'#fbbf24', Yellow:'#fde047', Green:'#4ade80' };
+import { useState, useRef } from 'react';
+import { motion, Variants } from 'framer-motion';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
 
-export default function AnalyticsPage() {
-  const { data: summary, isLoading: sl } = useSummary();
-  const { data: sd, isLoading: sessL } = useAllSessions();
-  const sessions = sd?.sessions ?? [];
-  const triage = summary?.triage_distribution ?? {} as any;
+// --- MOCK LONGITUDINAL DATA ---
+const rescueTrendData = [
+  { month: 'Jan', rescue: 62, fatality: 38, baseline: 55 },
+  { month: 'Feb', rescue: 65, fatality: 35, baseline: 55 },
+  { month: 'Mar', rescue: 71, fatality: 29, baseline: 55 },
+  { month: 'Apr', rescue: 78, fatality: 22, baseline: 55 },
+  { month: 'May', rescue: 86, fatality: 14, baseline: 55 },
+  { month: 'Jun', rescue: 92, fatality: 8, baseline: 55 },
+];
 
-  const pieData = ['Red','Orange','Yellow','Green'].map(k => ({ name: k, value: triage[k]?.count ?? 0 })).filter(d => d.value > 0);
-  const pwatBuckets = bucketPwat(sessions);
-  const timeData = groupByDate(sessions).slice(-14);
+const injuryFrequencyData = [
+  { type: 'Gunshot (GSW)', North: 45, South: 30, East: 20, West: 15 },
+  { type: 'Blunt Trauma', North: 25, South: 40, East: 10, West: 22 },
+  { type: 'Laceration', North: 15, South: 20, East: 35, West: 10 },
+  { type: 'Burn / Thermal', North: 10, South: 5, East: 15, West: 30 },
+  { type: 'Puncture', North: 5, South: 12, East: 8, West: 15 },
+];
 
-  const depthCounts: Record<string,number> = {};
-  sessions.forEach(s => {
-    const d = s.wound_metrics?.depth_severity ?? 'Unknown';
-    depthCounts[d] = (depthCounts[d] || 0) + 1;
-  });
-  const depthData = Object.entries(depthCounts).map(([name, count]) => ({ name, count }));
-
-  const total = summary?.total_cases ?? 0;
-  const avg  = summary?.avg_pwat ?? 0;
-  const red  = triage.Red?.count ?? 0;
-  const green= triage.Green?.count ?? 0;
-
-  const customTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
     return (
-      <div style={{ background: 'rgba(6,12,24,0.95)', border: '1px solid var(--border-hi)', borderRadius: 8, padding: '6px 12px', fontFamily: 'var(--mono)', fontSize: 11 }}>
-        <div style={{ color: 'var(--text)' }}>{payload[0]?.name ?? ''}: <strong style={{ color: 'var(--accent)' }}>{payload[0]?.value}</strong></div>
+      <div style={{ background: 'rgba(2, 6, 23, 0.95)', border: '1px solid rgba(255,255,255,0.1)', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)' }}>
+        <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
+        {payload.map((p: any, i: number) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: p.color, boxShadow: `0 0 8px ${p.color}` }} />
+            <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text2)', flex: 1 }}>{p.name}:</span>
+            <span style={{ fontSize: 13, fontWeight: 'bold', fontFamily: 'var(--mono)', color: 'white' }}>{p.value}%</span>
+          </div>
+        ))}
       </div>
     );
+  }
+  return null;
+};
+
+// Fixed the TypeScript inference error by explicitly defining the type and using `as const`
+const staggerReveal: Variants = {
+  hidden: { opacity: 0, y: 15 },
+  show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.1, duration: 0.4, ease: "easeOut" as const } }),
+};
+
+export default function AnalyticsPage() {
+  const [timeRange, setTimeRange] = useState<'30D' | '90D' | '6M' | '1Y'>('6M');
+  const [regionFilter, setRegionFilter] = useState<'All' | 'North' | 'South' | 'East' | 'West'>('All');
+  const [isExporting, setIsExporting] = useState(false);
+  const dashboardRef = useRef<HTMLDivElement>(null);
+
+  // --- VISUAL EXPORT ENGINE ---
+  const handleExportVisualPDF = async () => {
+    if (!dashboardRef.current) return;
+    setIsExporting(true);
+    
+    try {
+      // 1. Take a high-resolution snapshot of the dashboard
+      const canvas = await html2canvas(dashboardRef.current, {
+        backgroundColor: '#020617', // Match your global dark background
+        scale: 2, // 2x scale for sharp text in the PDF
+        useCORS: true,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      
+      // 2. Initialize PDF (Landscape A4 fits dashboards best)
+      const pdf = new jsPDF('l', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      // 3. Draw Header
+      pdf.setFontSize(16);
+      pdf.setTextColor(40, 40, 40);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Valkyra Command - Analytics Brief", 14, 20);
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Generated: ${new Date().toLocaleString()}`, 14, 26);
+      
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(14, 32, pdfWidth - 14, 32);
+
+      // 4. Inject visual snapshot
+      pdf.addImage(imgData, 'PNG', 14, 38, pdfWidth - 28, pdfHeight * ((pdfWidth - 28) / pdfWidth));
+      
+      // 5. Download
+      pdf.save(`Valkyra_Analytics_Snapshot_${Date.now()}.pdf`);
+    } catch (error) {
+      console.error('Failed to generate visual export', error);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
-    <>
-      <div className="metrics-grid">
-        <DescribedMetricCard label="Total Cases" description={info.totalCases} value={sl ? '—' : total} color="cv-blue" bg="mc-blue" />
-        <DescribedMetricCard label="Avg PWAT" description={info.avgPwat} value={sl ? '—' : Number(avg).toFixed(2)} color="cv-amber" bg="mc-amber" />
-        <DescribedMetricCard label="High Priority" description={info.highPriority} value={<>{sl ? '—' : red + (triage.Orange?.count ?? 0)}<span style={{fontSize:14,color:'var(--text3)',fontWeight:400}}> Red+Orange</span></>} color="cv-red" bg="mc-red" />
-        <DescribedMetricCard label="Stable (Green)" description={info.stable} value={sl ? '—' : green} color="cv-green" bg="mc-cyan" />
+    <div className="pb-10">
+      
+      {/* HEADER CONTROLS */}
+      <div className="flex justify-end gap-4 mb-6">
+        <div className="flex gap-2 items-center p-1 bg-black/40 border border-white/5 rounded-lg">
+          {['30D', '90D', '6M', '1Y'].map(tr => (
+            <button
+              key={tr}
+              onClick={() => setTimeRange(tr as any)}
+              className="btn"
+              style={{ fontSize: 10, padding: '4px 12px', ...(timeRange === tr ? { borderColor: 'rgba(34,211,238,0.5)', color: '#22d3ee', background: 'rgba(34,211,238,0.05)' } : { border: '1px solid transparent', background: 'transparent' }) }}
+            >
+              {tr}
+            </button>
+          ))}
+        </div>
+        <button 
+          onClick={handleExportVisualPDF}
+          disabled={isExporting}
+          className="btn flex items-center gap-2 transition-all"
+          style={{ fontSize: 10, padding: '6px 16px', borderColor: 'rgba(34,211,238,0.3)', color: '#22d3ee', background: isExporting ? 'rgba(34,211,238,0.15)' : 'rgba(34,211,238,0.05)' }}
+        >
+          {isExporting ? (
+            <span className="w-3.5 h-3.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+          )}
+          {isExporting ? 'GENERATING PDF...' : 'EXPORT REPORT'}
+        </button>
       </div>
 
-      <div className="mid-grid" style={{ marginBottom: 20 }}>
-        <div className="card">
-          <div className="card-header"><span className="card-title"><MetricInfo label="Triage Distribution" description={info.triage} /></span><span className="badge badge-live">ALL CASES</span></div>
-          <div style={{ padding: '20px 18px', display: 'flex', alignItems: 'center', gap: 24 }}>
-            {pieData.length > 0 ? (
-              <>
-                <ResponsiveContainer width={180} height={180}>
-                  <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={3}>
-                      {pieData.map(d => <Cell key={d.name} fill={TRIAGE_COLORS[d.name]} />)}
-                    </Pie>
-                    <Tooltip content={customTooltip} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {pieData.map(d => (
-                    <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: TRIAGE_COLORS[d.name] }} />
-                      <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: 'var(--mono)' }}>{d.name}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: TRIAGE_COLORS[d.name], marginLeft: 'auto' }}>{d.value}</span>
-                      <span style={{ fontSize: 10, color: 'var(--text3)' }}>{triage[d.name]?.pct ?? 0}%</span>
-                    </div>
-                  ))}
+      {/* DASHBOARD CONTAINER (Ref attached here for snapshot) */}
+      <div ref={dashboardRef} className="bg-[#020617] p-2 rounded-xl -m-2">
+        {/* TOP GRID: PRIMARY OUTCOMES */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          
+          <motion.div custom={1} initial="hidden" animate="show" variants={staggerReveal} className="card lg:col-span-2 relative overflow-hidden">
+            <div className="absolute inset-0 pointer-events-none rounded-lg overflow-hidden opacity-[0.03]">
+               <motion.div className="w-full h-[1px] bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" animate={{ y: ["-100%", "800%"] }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }} />
+            </div>
+            
+            <div className="card-header relative z-10" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              <div>
+                <span className="card-title text-cyan-400">Rescue vs Fatality Rate</span>
+                <p style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', marginTop: 4 }}>Pre & Post Valkyra Deployment Trajectory</p>
+              </div>
+              <div className="text-right">
+                <div style={{ fontSize: 24, fontWeight: 'bold', fontFamily: 'var(--mono)', color: 'var(--green)' }}>92.0%</div>
+                <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase' }}>Current Rescue Rate</div>
+              </div>
+            </div>
+            
+            <div className="h-[280px] w-full mt-4 relative z-10 p-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={rescueTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="month" stroke="rgba(255,255,255,0.1)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                  <YAxis stroke="rgba(255,255,255,0.1)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'monospace' }} domain={[0, 100]} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(34,211,238,0.2)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.5)', paddingTop: 10 }} />
+                  
+                  <Line type="stepAfter" dataKey="baseline" name="Pre-Valkyra Baseline" stroke="rgba(255,255,255,0.2)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                  <Line type="monotone" dataKey="fatality" name="Fatality Rate" stroke="#f87171" strokeWidth={3} dot={{ r: 4, fill: '#1e293b', stroke: '#f87171', strokeWidth: 2 }} activeDot={{ r: 6, fill: '#f87171', stroke: '#fff', strokeWidth: 2 }} />
+                  <Line type="monotone" dataKey="rescue" name="Rescue Rate" stroke="#4ade80" strokeWidth={3} dot={{ r: 4, fill: '#1e293b', stroke: '#4ade80', strokeWidth: 2 }} activeDot={{ r: 6, fill: '#4ade80', stroke: '#fff', strokeWidth: 2 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+
+          <motion.div custom={2} initial="hidden" animate="show" variants={staggerReveal} className="card relative overflow-hidden flex flex-col justify-between" style={{ background: 'linear-gradient(145deg, rgba(34,211,238,0.05) 0%, rgba(0,0,0,0.2) 100%)', borderColor: 'rgba(34,211,238,0.2)' }}>
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent pointer-events-none" />
+            
+            <div className="relative z-10 p-2">
+              <h2 style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24 }}>Intervention Impact</h2>
+              
+              <div className="space-y-6">
+                <div>
+                  <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginBottom: 4 }}>RELATIVE SURVIVAL INCREASE</div>
+                  <div style={{ fontSize: 28, fontWeight: 'bold', fontFamily: 'var(--mono)', color: 'white', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    +37% 
+                    <span style={{ fontSize: 10, padding: '4px 8px', background: 'rgba(34, 197, 94, 0.1)', color: 'var(--green)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4 }}>Significant</span>
+                  </div>
                 </div>
-              </>
-            ) : <div style={{ color: 'var(--text3)', fontFamily: 'var(--mono)', fontSize: 12 }}>No data available</div>}
-          </div>
+                
+                <div style={{ height: 1, width: '100%', background: 'rgba(255,255,255,0.05)' }} />
+
+                <div>
+                  <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginBottom: 4 }}>AVERAGE STABILIZATION TIME</div>
+                  <div style={{ fontSize: 24, fontWeight: 'bold', fontFamily: 'var(--mono)', color: 'white' }}>
+                    14.2 <span style={{ fontSize: 12, color: 'var(--text3)' }}>mins</span>
+                  </div>
+                  <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--green)', marginTop: 4 }}>↓ 4.8 mins faster than baseline</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="relative z-10 mt-6 p-4 rounded-lg" style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Protocol Adherence</div>
+              <div style={{ width: '100%', background: 'rgba(255,255,255,0.1)', height: 6, borderRadius: 3, overflow: 'hidden' }}>
+                <motion.div initial={{ width: 0 }} animate={{ width: '88%' }} transition={{ duration: 1, delay: 0.5 }} style={{ height: '100%', background: 'var(--cyan)', boxShadow: '0 0 10px var(--cyan)' }} />
+              </div>
+              <div className="flex justify-between mt-3">
+                <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)' }}>Target: 95%</span>
+                <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cyan)', fontWeight: 'bold' }}>Current: 88%</span>
+              </div>
+            </div>
+          </motion.div>
         </div>
 
-        <div className="card">
-          <div className="card-header"><span className="card-title"><MetricInfo label="PWAT Score Distribution" description={info.pwatDistribution} /></span><span className="badge badge-ai">AI SCORED</span></div>
-          <div style={{ padding: '16px 18px' }}>
-            <ResponsiveContainer width="100%" height={160}>
-              <BarChart data={pwatBuckets} barSize={20}>
-                <XAxis dataKey="range" tick={{ fill: 'rgba(240,244,255,0.35)', fontSize: 10, fontFamily: 'JetBrains Mono' }} axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Tooltip content={customTooltip} />
-                <Bar dataKey="count" radius={[4,4,0,0]}>
-                  {pwatBuckets.map((b,i) => <Cell key={i} fill={i >= 2 ? 'var(--red)' : i === 1 ? 'var(--amber)' : 'var(--green)'} />)}
-                </Bar>
+        {/* BOTTOM GRID: INJURY FREQUENCY */}
+        <motion.div custom={3} initial="hidden" animate="show" variants={staggerReveal} className="card relative overflow-hidden">
+          <div className="card-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+            <div>
+              <span className="card-title text-cyan-400">Regional Injury Demographics</span>
+              <p style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', marginTop: 4 }}>Frequency distribution by trauma type and deployment zone</p>
+            </div>
+            
+            <select 
+              value={regionFilter}
+              onChange={(e) => setRegionFilter(e.target.value as any)}
+              className="form-select"
+              style={{ fontSize: 11, padding: '6px 12px', width: 140, background: 'rgba(0,0,0,0.4)' }}
+            >
+              {['All', 'North', 'South', 'East', 'West'].map(r => <option key={r} value={r}>{r} Region</option>)}
+            </select>
+          </div>
+
+          <div className="h-[300px] w-full mt-4 p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={injuryFrequencyData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis dataKey="type" stroke="rgba(255,255,255,0.1)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                <YAxis stroke="rgba(255,255,255,0.1)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} content={<CustomTooltip />} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.5)', paddingTop: 10 }} />
+                
+                {(regionFilter === 'All' || regionFilter === 'North') && <Bar dataKey="North" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />}
+                {(regionFilter === 'All' || regionFilter === 'South') && <Bar dataKey="South" stackId="a" fill="#22d3ee" radius={[0, 0, 0, 0]} />}
+                {(regionFilter === 'All' || regionFilter === 'East') && <Bar dataKey="East" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} />}
+                {(regionFilter === 'All' || regionFilter === 'West') && <Bar dataKey="West" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} />}
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </motion.div>
       </div>
 
-      <div className="mid-grid">
-        <div className="card">
-          <div className="card-header"><span className="card-title"><MetricInfo label="Sessions Over Time" description={info.sessionsOverTime} /></span><span className="badge badge-cyan">TIMELINE</span></div>
-          <div style={{ padding: '16px 18px' }}>
-            {timeData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={160}>
-                <LineChart data={timeData}>
-                  <CartesianGrid stroke="rgba(255,255,255,0.04)" />
-                  <XAxis dataKey="date" tick={{ fill: 'rgba(240,244,255,0.35)', fontSize: 9, fontFamily: 'JetBrains Mono' }} axisLine={false} tickLine={false} />
-                  <YAxis hide />
-                  <Tooltip content={customTooltip} />
-                  <Line type="monotone" dataKey="count" stroke="var(--accent)" strokeWidth={2} dot={{ fill: 'var(--accent)', r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : <div style={{ color: 'var(--text3)', fontFamily: 'var(--mono)', fontSize: 12, padding: 20 }}>Not enough data for timeline.</div>}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-header"><span className="card-title"><MetricInfo label="Depth Severity Breakdown" description={info.depthSeverity} /></span><span className="badge badge-warn">WOUND DEPTH</span></div>
-          <div style={{ padding: '16px 18px' }}>
-            {depthData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={depthData} layout="vertical" barSize={12}>
-                  <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="name" tick={{ fill: 'rgba(240,244,255,0.4)', fontSize: 10, fontFamily: 'JetBrains Mono' }} axisLine={false} tickLine={false} width={80} />
-                  <Tooltip content={customTooltip} />
-                  <Bar dataKey="count" fill="var(--cyan)" radius={[0,4,4,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <div style={{ color: 'var(--text3)', fontFamily: 'var(--mono)', fontSize: 12 }}>No data.</div>}
-          </div>
-        </div>
-      </div>
-    </>
+    </div>
   );
 }

@@ -14,14 +14,17 @@ const TITLES: Record<string, string> = {
   '/ai-performance': 'AI Performance',
   '/heatmaps':       'Heatmaps',
   '/settings':       'Settings',
+  '/training-intel': 'Training Intelligence',
 };
 
 export default function Topbar() {
   const pathname = usePathname();
   const [clock, setClock] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const qc = useQueryClient();
   const setIncidentModalOpen = useNucleusStore((s) => s.setIncidentModalOpen);
 
+  // --- Clock Engine ---
   useEffect(() => {
     const tick = () => {
       const n = new Date();
@@ -35,7 +38,22 @@ export default function Topbar() {
     return () => clearInterval(id);
   }, []);
 
-  const handleRefresh = () => qc.invalidateQueries();
+  // --- Auto-Refresh Engine (Simulated WebSocket) ---
+  useEffect(() => {
+    // Automatically refetch all active queries every 15 seconds
+    const autoRefreshId = setInterval(() => {
+      qc.invalidateQueries();
+    }, 15000);
+    return () => clearInterval(autoRefreshId);
+  }, [qc]);
+
+  // --- Manual Refresh Handler ---
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await qc.invalidateQueries();
+    // Simulate a brief minimum delay so the user sees the spin animation
+    setTimeout(() => setIsRefreshing(false), 600);
+  };
 
   return (
     <div className="topbar">
@@ -50,7 +68,23 @@ export default function Topbar() {
           <div className="pulse-dot" />
           LIVE
         </div>
-        <button className="btn" onClick={handleRefresh}>↻ Refresh</button>
+        
+        <button 
+          className="btn flex items-center gap-2" 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <svg 
+            className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-cyan-400' : ''}`} 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {isRefreshing ? 'SYNCING...' : 'REFRESH'}
+        </button>
+
         <button className="btn btn-accent" onClick={() => setIncidentModalOpen(true)}>
           + New Incident
         </button>

@@ -1,105 +1,217 @@
 'use client';
-import { useAllSessions } from '@/hooks';
-import { groupByDate, groupByHour } from '@/lib/utils';
-import { useState } from 'react';
 
-const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+import { useState, useMemo } from 'react';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 
-function heatColor(count: number, max: number): string {
-  if (count === 0) return 'rgba(255,255,255,0.04)';
-  const intensity = count / max;
-  if (intensity > 0.75) return `rgba(248,113,113,${0.6 + intensity * 0.4})`;
-  if (intensity > 0.4)  return `rgba(251,191,36,${0.4 + intensity * 0.4})`;
-  return `rgba(74,222,128,${0.3 + intensity * 0.4})`;
-}
+// --- MOCK GEOGRAPHIC INCIDENT DATA ---
+const MOCK_INCIDENTS = Array.from({ length: 45 }).map((_, i) => {
+  const isCritical = Math.random() > 0.7;
+  const zone = ['NORTH', 'SOUTH', 'EAST', 'WEST'][Math.floor(Math.random() * 4)];
+  return {
+    id: `TRM-${1000 + i}`,
+    x: Math.floor(Math.random() * 80) + 10,
+    y: Math.floor(Math.random() * 80) + 10,
+    severity: isCritical ? 'Red' : Math.random() > 0.5 ? 'Orange' : 'Yellow',
+    zone: zone,
+    timeOffset: Math.random() * 72,
+  };
+});
 
-export default function HeatmapsPage() {
-  const { data: sd, isLoading } = useAllSessions();
-  const [tooltip, setTooltip] = useState<{ text:string; x:number; y:number } | null>(null);
+// --- ANIMATION VARIANTS ---
+const panelVariant: Variants = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } }
+};
 
-  const sessions = sd?.sessions ?? [];
-  const dateMap = groupByDate(sessions);
-  const hourData = groupByHour(sessions);
-  const maxHour = Math.max(...hourData.map(h => h.count), 1);
+export default function HeatmapPage() {
+  const [timeRange, setTimeRange] = useState<number>(24);
+  const [activeZone, setActiveZone] = useState<string>('ALL');
+  const [outcomeFilter, setOutcomeFilter] = useState<'ALL' | 'CRITICAL'>('ALL');
 
-  // Build 8-week grid
-  const today = new Date();
-  const cells: { date:string; count:number }[] = [];
-  for (let i = 55; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const ds = d.toISOString().slice(0,10);
-    cells.push({ date:ds, count: dateMap.find(r => r.date === ds)?.count ?? 0 });
-  }
-  while (cells.length % 7 !== 0) cells.unshift({ date:'', count:0 });
-  const maxCell = Math.max(...cells.map(c => c.count), 1);
-
-  const peakHour = hourData.reduce((best, h) => h.count > best.count ? h : best, hourData[0]);
-
-  if (isLoading) return <div style={{ display:'flex', flexDirection:'column', gap:12 }}>{[...Array(3)].map((_,i) => <div key={i} className="skeleton" style={{ height:80, borderRadius:'var(--r)' }} />)}</div>;
-
-  if (sessions.length < 7) return (
-    <div style={{ textAlign:'center', padding:60, color:'var(--text3)', fontFamily:'var(--mono)', fontSize:12 }}>
-      Not enough data to generate heatmap.<br/>More sessions needed ({sessions.length} / 7 minimum).
-    </div>
-  );
+  const visibleIncidents = useMemo(() => {
+    return MOCK_INCIDENTS.filter(inc => {
+      const matchTime = inc.timeOffset <= timeRange;
+      const matchZone = activeZone === 'ALL' || inc.zone === activeZone;
+      const matchOutcome = outcomeFilter === 'ALL' || (outcomeFilter === 'CRITICAL' && inc.severity === 'Red');
+      return matchTime && matchZone && matchOutcome;
+    });
+  }, [timeRange, activeZone, outcomeFilter]);
 
   return (
-    <>
-      {tooltip && (
-        <div className="tooltip" style={{ left:tooltip.x+14, top:tooltip.y-10, opacity:1 }}>{tooltip.text}</div>
-      )}
+    <div className="flex flex-col h-[calc(100vh-100px)] gap-4 pb-6">
 
-      <div className="card" style={{ marginBottom:16 }}>
-        <div className="card-header"><span className="card-title">Incident Activity Heatmap · Last 8 Weeks</span><span className="badge badge-live">REAL DATA</span></div>
-        <div className="heatmap-area">
-          <div className="hmap-day-labels">{DAYS.map(d => <div key={d} className="hmap-day-label">{d}</div>)}</div>
-          <div className="heatmap-grid">
-            {cells.map((cell, i) => (
-              <div key={i} className="hmap-cell"
-                style={{ background: cell.date ? heatColor(cell.count, maxCell) : 'transparent', border: cell.date ? '1px solid transparent' : 'none' }}
-                onMouseEnter={e => {
-                  if (cell.date) setTooltip({ text:`${cell.count} session${cell.count!==1?'s':''} · ${cell.date}`, x:e.clientX, y:e.clientY });
+      {/* 1. HORIZONTAL FILTER DECK (shrink-0 prevents squishing) */}
+      <motion.div 
+        variants={panelVariant} 
+        initial="hidden" 
+        animate="show" 
+        className="shrink-0" 
+        style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center', background: 'var(--bg-card)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border)' }}
+      >
+        
+        {/* Zones */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1 }}>Zone:</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {['ALL', 'NORTH', 'SOUTH', 'EAST', 'WEST'].map(zone => (
+              <button
+                key={zone}
+                onClick={() => setActiveZone(zone)}
+                className="btn"
+                style={{
+                  fontSize: 10,
+                  padding: '6px 12px',
+                  ...(activeZone === zone ? { borderColor: 'rgba(34,211,238,0.5)', color: '#22d3ee', background: 'rgba(34,211,238,0.05)' } : {})
                 }}
-                onMouseLeave={() => setTooltip(null)}
-              />
+              >
+                {zone}
+              </button>
             ))}
           </div>
-          <div className="hmap-legend">
-            <span className="hmap-legend-label">Less</span>
-            <div className="hmap-legend-strip">
-              {[0.04,0.15,0.3,0.5,0.8].map((o,i) => <div key={i} className="hmap-legend-cell" style={{ background:`rgba(74,222,128,${o})` }} />)}
-              {[0.3,0.6,0.9].map((o,i) => <div key={i} className="hmap-legend-cell" style={{ background:`rgba(248,113,113,${o})` }} />)}
-            </div>
-            <span className="hmap-legend-label">More</span>
-          </div>
         </div>
-      </div>
 
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">Sessions by Hour of Day</span>
-          <span className="badge badge-ai">{peakHour?.count > 0 ? `Peak: ${peakHour.hour}:00` : 'NO DATA'}</span>
+        <div style={{ width: 1, height: 24, background: 'var(--border)' }} className="hidden lg:block" />
+
+        {/* Time Range */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1 }}>Time:</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[ { label: '24H', val: 24 }, { label: '7D', val: 168 }, { label: '30D', val: 720 } ].map(tr => (
+              <button
+                key={tr.label}
+                onClick={() => setTimeRange(tr.val)}
+                className="btn"
+                style={{
+                  fontSize: 10,
+                  padding: '6px 12px',
+                  ...(timeRange === tr.val ? { borderColor: 'rgba(34,211,238,0.5)', color: '#22d3ee', background: 'rgba(34,211,238,0.05)' } : {})
+                }}
+              >
+                {tr.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div style={{ padding:'16px 18px' }}>
-          <div style={{ display:'flex', gap:3, alignItems:'flex-end', height:80 }}>
-            {hourData.map(h => {
-              const pct = maxHour > 0 ? (h.count / maxHour) * 100 : 0;
-              const isPeak = h.hour === peakHour?.hour && peakHour.count > 0;
-              return (
-                <div key={h.hour} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}
-                  onMouseEnter={e => setTooltip({ text:`${h.hour}:00 — ${h.count} session${h.count!==1?'s':''}`, x:e.clientX, y:e.clientY })}
-                  onMouseLeave={() => setTooltip(null)}>
-                  <div style={{ width:'100%', height:`${Math.max(pct, 4)}%`, background: isPeak ? 'var(--accent)' : 'rgba(59,130,246,0.3)', borderRadius:'2px 2px 0 0', transition:'all 0.2s', boxShadow: isPeak ? '0 0 8px var(--accent-glow)' : 'none', minHeight: 2 }} />
+
+        <div style={{ width: 1, height: 24, background: 'var(--border)' }} className="hidden xl:block" />
+
+        {/* Outcome Filter */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1 }}>Layer:</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => setOutcomeFilter('ALL')}
+              className="btn"
+              style={{
+                fontSize: 10,
+                padding: '6px 16px',
+                ...(outcomeFilter === 'ALL' ? { borderColor: 'rgba(34,211,238,0.5)', color: '#22d3ee', background: 'rgba(34,211,238,0.05)' } : {})
+              }}
+            >
+              All Detections
+            </button>
+            <button
+              onClick={() => setOutcomeFilter('CRITICAL')}
+              className="btn"
+              style={{
+                fontSize: 10,
+                padding: '6px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                ...(outcomeFilter === 'CRITICAL' ? { borderColor: 'rgba(248,113,113,0.5)', color: 'var(--red)', background: 'rgba(248,113,113,0.05)' } : {})
+              }}
+            >
+              <div className={`w-1.5 h-1.5 rounded-full ${outcomeFilter === 'CRITICAL' ? 'bg-red-400 animate-pulse' : 'bg-slate-500'}`} />
+              Critical Only
+            </button>
+          </div>
+        </div>
+
+      </motion.div>
+
+      {/* 2. DEDICATED MAP CANVAS (flex-1 fills remaining space) */}
+      <motion.div variants={panelVariant} initial="hidden" animate="show" className="card relative flex-1 p-0 overflow-hidden" style={{ minHeight: '500px', border: '1px solid var(--border)' }}>
+        
+        {/* Radar Grid Overlay */}
+        <div
+          className="absolute inset-0 opacity-20 pointer-events-none"
+          style={{
+            backgroundImage: "linear-gradient(rgba(34,211,238,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.3) 1px, transparent 1px)",
+            backgroundSize: "60px 60px"
+          }}
+        />
+        
+        {/* Central Radar Sweep */}
+        <motion.div
+          className="absolute top-1/2 left-1/2 w-[150vw] h-[150vw] -ml-[75vw] -mt-[75vw] rounded-full border pointer-events-none"
+          style={{ background: 'conic-gradient(from 0deg, transparent 70%, rgba(34,211,238,0.05) 100%)', borderColor: 'rgba(34,211,238,0.1)' }}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
+        />
+
+        {/* Incident Plotting Engine */}
+        <AnimatePresence>
+          {visibleIncidents.map((inc) => {
+            const isRed = inc.severity === 'Red';
+            const color = isRed ? 'var(--red)' : inc.severity === 'Orange' ? 'var(--amber)' : 'var(--cyan)';
+            const glow = isRed ? 'rgba(248,113,113,0.4)' : inc.severity === 'Orange' ? 'rgba(251,191,36,0.2)' : 'rgba(34,211,238,0.1)';
+
+            return (
+              <motion.div
+                key={inc.id}
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0 }}
+                transition={{ duration: 0.5, type: 'spring' }}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 group cursor-crosshair"
+                style={{ left: `${inc.x}%`, top: `${inc.y}%` }}
+              >
+                {/* Heatmap Glow Base */}
+                <div
+                  className="absolute inset-0 rounded-full blur-xl mix-blend-screen pointer-events-none"
+                  style={{ width: isRed ? 120 : 80, height: isRed ? 120 : 80, marginLeft: isRed ? -60 : -40, marginTop: isRed ? -60 : -40, backgroundColor: glow }}
+                />
+                
+                {/* Core Incident Dot */}
+                <motion.div
+                  className="relative z-10 w-2 h-2 rounded-full border border-black"
+                  style={{ backgroundColor: color }}
+                  animate={isRed ? { boxShadow: [`0 0 0 0 ${color}`, `0 0 0 10px transparent`] } : {}}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                />
+
+                {/* Hover Tooltip */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none p-2 rounded shadow-xl w-32 z-50" style={{ background: 'rgba(2, 6, 23, 0.9)', border: '1px solid var(--border)', backdropFilter: 'blur(10px)' }}>
+                  <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)' }}>{inc.id}</div>
+                  <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'white', fontWeight: 'bold', margin: '2px 0' }}>{inc.severity} Triage</div>
+                  <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cyan)' }}>T - {Math.floor(inc.timeOffset)} HRS</div>
                 </div>
-              );
-            })}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+
+        {/* 3. FLOATING BOTTOM LEGEND */}
+        <div className="absolute bottom-6 left-6 pointer-events-none" style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', background: 'rgba(0,0,0,0.6)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border)', backdropFilter: 'blur(10px)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(248,113,113,0.8)]" />
+            <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>Severe / Red</span>
           </div>
-          <div style={{ display:'flex', justifyContent:'space-between', marginTop:6 }}>
-            {[0,6,12,18,23].map(h => <span key={h} style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)' }}>{h}:00</span>)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="w-2 h-2 rounded-full bg-amber-400" />
+            <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>Delayed / Orange</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="w-2 h-2 rounded-full bg-cyan-400" />
+            <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>Monitored / Stable</span>
+          </div>
+          <div className="hidden sm:block" style={{ borderLeft: '1px solid var(--border)', paddingLeft: 24, fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', letterSpacing: 1 }}>
+            LIVE DATA POINTS: <span style={{ color: 'white', fontWeight: 'bold' }}>{visibleIncidents.length}</span>
           </div>
         </div>
-      </div>
-    </>
+
+      </motion.div>
+    </div>
   );
 }

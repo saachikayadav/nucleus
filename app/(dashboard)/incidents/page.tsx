@@ -1,130 +1,125 @@
 'use client';
-import { useState } from 'react';
-import { useSummary, useAllSessions, useIncidents, useResolveIncident } from '@/hooks';
-import { useNucleusStore } from '@/store/useNucleusStore';
-import { pwatColor, triageClass, formatDate, depthSeverityColor } from '@/lib/utils';
-import { DescribedMetricCard, MetricInfo, METRIC_DESCRIPTIONS as info } from '@/components/ui/MetricInfo';
+import { useState, useEffect } from 'react';
+import { useIncidents, useResolveIncident } from '@/hooks';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// --- Live Mission Clock Component ---
+function MissionClock({ startTime }: { startTime: string }) {
+  const [elapsed, setElapsed] = useState('00:00:00');
+
+  useEffect(() => {
+    // For realistic demo purposes, pretend the incident started between 2 and 45 minutes ago
+    const mockStartTime = Date.now() - (Math.random() * 43 * 60000 + 120000);
+    
+    const update = () => {
+      const diff = Math.floor((Date.now() - mockStartTime) / 1000);
+      const h = Math.floor(diff / 3600).toString().padStart(2, '0');
+      const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
+      const s = (diff % 60).toString().padStart(2, '0');
+      setElapsed(`${h}:${m}:${s}`);
+    };
+    
+    update();
+    const int = setInterval(update, 1000);
+    return () => clearInterval(int);
+  }, [startTime]);
+
+  return <span className="font-mono text-[11px] tracking-widest">{elapsed}</span>;
+}
 
 export default function IncidentsPage() {
-  const { data: summary } = useSummary();
-  const { data: sessionsData, isLoading } = useAllSessions();
   const { data: incidentsData } = useIncidents();
   const { mutate: resolve } = useResolveIncident();
-  const setActivePatientId = useNucleusStore((s) => s.setActivePatientId);
-  const [triageFilter, setTriageFilter] = useState<string>('all');
-  const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<'newest' | 'pwat_desc' | 'pwat_asc'>('newest');
-
-  const sessions = sessionsData?.sessions ?? [];
   const incidents = incidentsData?.incidents ?? [];
-  const triage = summary?.triage_distribution ?? {} as any;
-  const totalCases = summary?.total_cases ?? 0;
-
-  let filtered = sessions
-    .filter(s => triageFilter === 'all' || s.triage_category === triageFilter)
-    .filter(s => !search || s.session_id.toLowerCase().includes(search.toLowerCase()));
-
-  if (sort === 'newest') filtered = [...filtered].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  else if (sort === 'pwat_desc') filtered = [...filtered].sort((a,b) => b.pwat_score - a.pwat_score);
-  else filtered = [...filtered].sort((a,b) => a.pwat_score - b.pwat_score);
+  
+  // Filter exclusively to ACTIVE incidents
+  const activeIncidents = incidents.filter(i => i.status === 'Active');
 
   return (
-    <>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-        {[
-          { label: 'Total Sessions', description: info.totalCases, value: totalCases, color: 'cv-blue' },
-          { label: 'Critical Red', description: info.critical, value: triage.Red?.count ?? 0, color: 'cv-red' },
-          { label: 'Avg PWAT', description: info.avgPwat, value: summary ? Number(summary.avg_pwat).toFixed(1) : '—', color: 'cv-amber' },
-        ].map(c => (
-          <DescribedMetricCard key={c.label} label={c.label} description={c.description} value={c.value} color={c.color} bg="" valueStyle={{fontSize:24}} />
-        ))}
+    <div className="p-6 max-w-[1400px] mx-auto min-h-screen">
+      
+      {/* Header */}
+      <div className="flex justify-between items-end mb-8">
+        <div>
+          <p className="text-[11px] font-mono tracking-widest text-slate-400 uppercase">
+            Active field operations requiring immediate oversight
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-3xl font-bold font-mono text-white">{activeIncidents.length}</div>
+          <div className="text-[10px] font-mono tracking-widest text-slate-500 uppercase">Active Units</div>
+        </div>
       </div>
 
-      {incidents.filter(i => i.status === 'Active').length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <div className="section-hd"><div className="section-title">Active Deployed Incidents</div><span className="badge badge-red">{incidents.filter(i=>i.status==='Active').length} ACTIVE</span></div>
-          <div className="card">
-            <table className="data-table">
-              <thead><tr><th>ID</th><th>Type</th><th>Responder</th><th>Device</th><th>Location</th><th>Deployed</th><th>Action</th></tr></thead>
-              <tbody>
-                {incidents.filter(i=>i.status==='Active').map(inc => (
-                  <tr key={inc.id}>
-                    <td style={{ fontFamily: 'var(--mono)', color: 'var(--text)', fontWeight: 600 }}>{inc.id}</td>
-                    <td><span className="feed-type t-gsw">{inc.type}</span></td>
-                    <td style={{ color: 'var(--text)' }}>{inc.responder}</td>
-                    <td style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{inc.device}</td>
-                    <td>{inc.location}</td>
-                    <td style={{ fontFamily: 'var(--mono)' }}>{formatDate(inc.created_at)}</td>
-                    <td>
-                      <button className="btn btn-success" style={{ fontSize: 10, padding: '4px 10px' }} onClick={() => resolve(inc.id)}>
-                        ✓ Resolve
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Active Grid */}
+      {activeIncidents.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 border border-white/5 border-dashed rounded-xl bg-white/[0.01]">
+          <div className="w-3 h-3 rounded-full bg-slate-600 mb-4" />
+          <div className="text-sm font-mono text-slate-400">NO ACTIVE DEPLOYMENTS</div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <AnimatePresence>
+            {activeIncidents.map((inc, idx) => {
+              const isCritical = inc.type.includes('GSW') || inc.type.includes('Stab');
+              
+              return (
+                <motion.div 
+                  key={inc.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className={`bg-white/[0.02] border ${isCritical ? 'border-red-500/30 bg-red-500/[0.02]' : 'border-white/10'} rounded-lg p-5 flex flex-col md:flex-row items-center gap-6 backdrop-blur-xl transition-all hover:bg-white/[0.05]`}
+                >
+                  {/* Status Indicator & Timer */}
+                  <div className="flex flex-col items-center justify-center w-24 border-r border-white/10 pr-6">
+                    <div className="text-[9px] font-mono text-slate-500 tracking-widest uppercase mb-2">T-MINUS</div>
+                    <div className={`${isCritical ? 'text-red-400' : 'text-cyan-400'} font-bold`}>
+                      <MissionClock startTime={inc.created_at} />
+                    </div>
+                  </div>
+
+                  {/* Core Info */}
+                  <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <div className="text-[9px] font-mono text-slate-500 tracking-widest uppercase mb-1">INCIDENT ID</div>
+                      <div className="text-xs font-mono text-white font-bold">{inc.id}</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] font-mono text-slate-500 tracking-widest uppercase mb-1">INJURY TYPE</div>
+                      <div className={`text-xs font-mono px-2 py-0.5 rounded border inline-block ${isCritical ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-400'}`}>
+                        {inc.type}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] font-mono text-slate-500 tracking-widest uppercase mb-1">RESPONDER</div>
+                      <div className="text-xs font-mono text-slate-300">{inc.responder}</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] font-mono text-slate-500 tracking-widest uppercase mb-1">HARDWARE</div>
+                      <div className="text-xs font-mono text-slate-300">{inc.device}</div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-3 pl-6 border-l border-white/10">
+                    <button className="px-4 py-2 bg-white/5 border border-white/10 text-white text-[10px] font-mono rounded hover:bg-white/10 transition-colors">
+                      RADIO
+                    </button>
+                    <button 
+                      onClick={() => resolve(inc.id)}
+                      className="px-4 py-2 bg-green-500/10 border border-green-500/30 text-green-400 text-[10px] font-mono rounded hover:bg-green-500/20 transition-colors"
+                    >
+                      MARK RESOLVED
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </div>
       )}
-
-      <div className="section-hd"><div className="section-title">Patient Sessions · Wound AI Database</div></div>
-
-      <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input className="form-input" placeholder="Search session ID..." value={search} onChange={e => setSearch(e.target.value)}
-          style={{ width: 220, padding: '6px 12px', fontSize: 12 }} />
-        <select className="form-select" value={sort} onChange={e => setSort(e.target.value as any)}
-          style={{ width: 180, padding: '6px 12px', fontSize: 12 }}>
-          <option value="newest">Newest First</option>
-          <option value="pwat_desc">PWAT High → Low</option>
-          <option value="pwat_asc">PWAT Low → High</option>
-        </select>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {(['all','Red','Orange','Yellow','Green'] as const).map(f => (
-            <button key={f} className="btn" style={{ fontSize: 11, padding: '5px 12px', ...(triageFilter===f ? { borderColor: 'rgba(59,130,246,0.5)', color: '#93c5fd' } : {}) }}
-              onClick={() => setTriageFilter(f)}>
-              {f === 'all' ? 'All' : f}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">Patient Sessions</span>
-          <span className="badge badge-live">{filtered.length} RESULTS</span>
-        </div>
-        {isLoading ? (
-          <div style={{ padding: '20px 18px' }}>
-            {[...Array(3)].map((_, i) => <div key={i} className="skeleton" style={{ height: 14, marginBottom: 10 }} />)}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ padding: '20px 18px', textAlign: 'center', color: 'var(--text3)', fontFamily: 'var(--mono)', fontSize: 12 }}>
-            No sessions match filter.&nbsp;
-            <span className="see-all" onClick={() => { setSearch(''); setTriageFilter('all'); }}>Reset ›</span>
-          </div>
-        ) : (
-          <table className="data-table">
-            <thead><tr><th>Session ID</th><th><MetricInfo label="Triage" description={info.triage} /></th><th><MetricInfo label="PWAT" description={info.pwat} /></th><th><MetricInfo label="Depth" description={info.depthSeverity} /></th><th><MetricInfo label="Area %" description={info.woundArea} /></th><th>Recorded</th><th></th></tr></thead>
-            <tbody>
-              {filtered.map(s => {
-                const wm = s.wound_metrics ?? {} as any;
-                return (
-                  <tr key={s.session_id} style={{ cursor: 'pointer' }} onClick={() => setActivePatientId(s.session_id)}>
-                    <td style={{ fontFamily: 'var(--mono)', color: 'var(--text)', fontWeight: 600, fontSize: 11 }}>{s.session_id}</td>
-                    <td><span className={`feed-type ${triageClass(s.triage_category)}`}>{s.triage_category}</span></td>
-                    <td style={{ color: pwatColor(s.pwat_score), fontWeight: 700, fontFamily: 'var(--mono)' }}>{s.pwat_score}</td>
-                    <td style={{ color: depthSeverityColor(wm.depth_severity), fontFamily: 'var(--mono)', fontSize: 11 }}>{wm.depth_severity ?? '—'}</td>
-                    <td style={{ fontFamily: 'var(--mono)' }}>{wm.area_pct != null ? Number(wm.area_pct).toFixed(1)+'%' : '—'}</td>
-                    <td style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{formatDate(s.created_at)}</td>
-                    <td><span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'var(--mono)' }}>Open →</span></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </>
+    </div>
   );
 }
