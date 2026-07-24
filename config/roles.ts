@@ -19,6 +19,11 @@ export const ROLE_ASSIGNMENTS: Record<string, Role> = {
   'saachika.yadav@valkyratechnologies.com': 'admin',
   'saachikay24@gmail.com': 'patient',
   'saachikay@gmail.com': 'doctor',
+  'sunil.sharma@valkyratechnologies.com': 'admin',
+  'iris.zhorov@valkyratechnologies.com': 'admin',
+  'frank.lyman@valkyratechnologies.com': 'admin',
+  'krishna.soni@valkyratechnologies.com': 'admin',
+  'rishabh.sharma@valkyratechnologies.com': 'admin',
   // 'doctor@example.com': 'doctor',
 };
 
