@@ -1,93 +1,93 @@
 'use client';
+import { RESPONDERS } from '@/config/fleet';
+import { useIncidents } from '@/hooks';
+import { useNucleusStore } from '@/store/useNucleusStore';
+import { getDeviceForResponder } from '@/lib/deviceAssignments';
 
-import { useState } from 'react';
-import { motion, Variants } from 'framer-motion';
-
-const MOCK_RESPONDERS = [
-  { id: 'R-092', name: 'Sgt. Elias Vance', rank: 'Lead Medic', unit: 'North Unit', usageRate: 94, incidents: 142, escalationRate: 12, aiScore: 98 },
-  { id: 'R-104', name: 'Cpl. Sarah Jenkins', rank: 'Combat Medic', unit: 'South Unit', usageRate: 68, incidents: 89, escalationRate: 34, aiScore: 76 },
-  { id: 'R-118', name: 'Lt. Marcus Thorne', rank: 'Medical Officer', unit: 'East Wing', usageRate: 100, incidents: 215, escalationRate: 5, aiScore: 99 },
-  { id: 'R-201', name: 'Pvt. James Cobb', rank: 'Field Medic', unit: 'West Wing', usageRate: 45, incidents: 32, escalationRate: 55, aiScore: 62 },
-];
-
-const staggerContainer: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+const STATUS_CONFIG: Record<string, { cls: string; dot: string; label: string }> = {
+  LIVE:    { cls: 'status-live',    dot: 'd-online',  label: 'LIVE' },
+  ONLINE:  { cls: 'status-online',  dot: 'd-online',  label: 'ONLINE' },
+  IDLE:    { cls: 'status-idle',    dot: 'd-idle',    label: 'IDLE' },
+  OFFLINE: { cls: 'status-offline', dot: 'd-offline', label: 'OFFLINE' },
 };
 
-const rowVariant: Variants = {
-  hidden: { opacity: 0, x: -20 },
-  show: { opacity: 1, x: 0, transition: { duration: 0.3, ease: 'easeOut' } }
-};
+const usageColor = (pct: number) => pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
 
 export default function RespondersPage() {
-  const [search, setSearch] = useState('');
+  const { data: incidentsData } = useIncidents();
+  const incidents = incidentsData?.incidents ?? [];
+  const assignments = useNucleusStore((s) => s.deviceAssignments);
 
-  const filtered = MOCK_RESPONDERS.filter(r => r.name.toLowerCase().includes(search.toLowerCase()) || r.unit.toLowerCase().includes(search.toLowerCase()));
+  const active  = RESPONDERS.filter(r => r.status === 'LIVE' || r.status === 'ONLINE').length;
+  const idle    = RESPONDERS.filter(r => r.status === 'IDLE').length;
+  const offline = RESPONDERS.filter(r => r.status === 'OFFLINE').length;
+
+  const incidentsHandled = (name: string) => incidents.filter(i => i.responder === name).length;
 
   return (
-    <div className="pb-32">
-
-      <div className="card" style={{ padding: '16px', marginBottom: 24, display: 'flex', gap: 16 }}>
-        <div style={{ flex: 1, position: 'relative' }}>
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input 
-            className="form-input" 
-            placeholder="Search by Name or Unit..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)}
-            style={{ width: '100%', paddingLeft: '36px' }} 
-          />
-        </div>
-        <button className="btn" style={{ borderColor: 'rgba(34,211,238,0.3)', color: 'var(--cyan)' }}>
-          + ADD RESPONDER
-        </button>
+    <>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+        {[{ label:'Active', value:active, color:'var(--green)' }, { label:'Idle', value:idle, color:'var(--amber)' }, { label:'Offline', value:offline, color:'var(--text3)' }, { label:'Total', value:RESPONDERS.length, color:'var(--text)' }].map(s => (
+          <div key={s.label} style={{ flex:1, background:'var(--glass)', border:'1px solid var(--border)', borderRadius:'var(--r)', padding:'14px 18px', textAlign:'center' }}>
+            <div style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)', letterSpacing:2, textTransform:'uppercase', marginBottom:6 }}>{s.label}</div>
+            <div style={{ fontSize:28, fontWeight:800, color:s.color, letterSpacing:-1 }}>{s.value}</div>
+          </div>
+        ))}
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24, padding: '16px 24px', borderBottom: '1px solid var(--border)', fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1, background: 'rgba(0,0,0,0.2)' }}>
-          <div style={{ width: 250 }}>Personnel</div>
-          <div style={{ width: 150 }}>Deployment Unit</div>
-          <div style={{ flex: 1 }}>Hardware Usage Rate</div>
-          <div style={{ width: 120, textAlign: 'right' }}>Incidents</div>
-          <div style={{ width: 150, textAlign: 'right' }}>Escalation Rate</div>
-        </div>
+      <div style={{ background:'rgba(59,130,246,0.04)', border:'1px solid rgba(59,130,246,0.15)', borderRadius:10, padding:'10px 16px', marginBottom:20, fontSize:11, color:'var(--text3)', fontFamily:'var(--mono)' }}>
+        ℹ Rank, unit, and Valkyra usage rate are managed via fleet configuration. Incidents handled is computed live from the incident feed.
+      </div>
 
-        <motion.div variants={staggerContainer} initial="hidden" animate="show" style={{ display: 'flex', flexDirection: 'column' }}>
-          {filtered.map((r, i) => (
-            <motion.div variants={rowVariant} key={r.id} className="hover:bg-white/[0.02]" style={{ display: 'flex', alignItems: 'center', gap: 24, padding: '16px 24px', borderBottom: i === filtered.length - 1 ? 'none' : '1px solid var(--border)', transition: 'background 0.2s' }}>
-              <div style={{ width: 250 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{r.name}</div>
-                <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)' }}>{r.id} · {r.rank}</div>
+      <div className="section-hd"><div className="section-title">Field Responders · {RESPONDERS.length} Personnel</div></div>
+      <div className="responder-grid">
+        {RESPONDERS.map(r => {
+          const sc = STATUS_CONFIG[r.status];
+          const handled = incidentsHandled(r.name);
+          const device = getDeviceForResponder(r.id, assignments);
+          return (
+            <div key={r.id} className="responder-card">
+              <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:12 }}>
+                <div className="resp-avatar">{r.initials}</div>
+                <span className={`badge ${sc.cls}`} style={{ padding:'4px 10px' }}>{sc.label}</span>
               </div>
-              
-              <div style={{ width: 150, fontSize: 12, color: 'var(--text2)' }}>{r.unit}</div>
-              
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${r.usageRate}%` }} transition={{ duration: 1 }} style={{ height: '100%', background: r.usageRate > 80 ? 'var(--cyan)' : r.usageRate > 50 ? 'var(--amber)' : 'var(--red)' }} />
-                </div>
-                <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: r.usageRate > 80 ? 'var(--cyan)' : r.usageRate > 50 ? 'var(--amber)' : 'var(--red)', width: 40 }}>
-                  {r.usageRate}%
+              <div className="resp-name">{r.name}</div>
+              <div className="resp-rank">{r.rank} · {r.unit}</div>
+
+              <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border)' }}>
+                <div style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)', letterSpacing:2, marginBottom:6, textTransform:'uppercase' }}>Assigned Device</div>
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <div className={`d-status ${sc.dot}`} />
+                  <span style={{ fontSize:11, fontFamily:'var(--mono)', color:'var(--text2)' }}>{device ? `${device.model} ${device.serial}` : 'Unassigned'}</span>
                 </div>
               </div>
 
-              <div style={{ width: 120, textAlign: 'right', fontSize: 14, fontFamily: 'var(--mono)', fontWeight: 'bold', color: 'var(--text)' }}>
-                {r.incidents}
+              <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border)' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
+                  <span style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)', letterSpacing:2, textTransform:'uppercase' }}>Valkyra Usage</span>
+                  <span style={{ fontSize:11, fontFamily:'var(--mono)', fontWeight:700, color:usageColor(r.valkyra_usage_pct) }}>{r.valkyra_usage_pct}%</span>
+                </div>
+                <div className="acc-track"><div className="acc-fill" style={{ width:`${r.valkyra_usage_pct}%`, background:usageColor(r.valkyra_usage_pct) }} /></div>
               </div>
 
-              <div style={{ width: 150, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                <span className={`triage-badge ${r.escalationRate > 30 ? 'triage-Red' : r.escalationRate > 15 ? 'triage-Orange' : 'triage-Green'} uppercase`}>
-                  {r.escalationRate}% BYPASS
-                </span>
-                <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 6 }}>AI Score: {r.aiScore}</span>
+              <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border)', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
+                <div>
+                  <div style={{ fontSize:8, color:'var(--text3)', fontFamily:'var(--mono)', letterSpacing:1, textTransform:'uppercase', marginBottom:3 }}>Incidents</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:'var(--text)' }}>{handled}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize:8, color:'var(--text3)', fontFamily:'var(--mono)', letterSpacing:1, textTransform:'uppercase', marginBottom:3 }}>Avg Response</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:'var(--text)' }}>{r.avg_response_min}<span style={{ fontSize:10, color:'var(--text3)', fontWeight:400 }}>m</span></div>
+                </div>
+                <div>
+                  <div style={{ fontSize:8, color:'var(--text3)', fontFamily:'var(--mono)', letterSpacing:1, textTransform:'uppercase', marginBottom:3 }}>Resolved</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:'var(--green)' }}>{r.resolution_rate_pct}<span style={{ fontSize:10, color:'var(--text3)', fontWeight:400 }}>%</span></div>
+                </div>
               </div>
-            </motion.div>
-          ))}
-        </motion.div>
+            </div>
+          );
+        })}
       </div>
-    </div>
+    </>
   );
 }

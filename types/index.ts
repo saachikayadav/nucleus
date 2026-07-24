@@ -78,16 +78,21 @@ export interface Responder {
   device_id: string;
   status: 'LIVE' | 'ONLINE' | 'IDLE' | 'OFFLINE';
   initials: string;
+  valkyra_usage_pct: number;
+  avg_response_min: number;
+  resolution_rate_pct: number;
 }
 
 export interface Device {
   id: string;
   model: string;
   serial: string;
-  assigned_to: string;
   unit: string;
   status: 'LIVE' | 'ONLINE' | 'IDLE' | 'OFFLINE';
-  last_active: string | null;
+  firmware: string;
+  last_sync: string;
+  battery_pct: number;
+  sync_failed: boolean;
 }
 
 export interface Toast {

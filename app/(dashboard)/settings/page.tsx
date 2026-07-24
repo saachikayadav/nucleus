@@ -4,6 +4,8 @@ import { useNucleusStore } from '@/store/useNucleusStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { checkHealth } from '@/lib/api';
+import { usePermission, useRole } from '@/hooks';
+import { PERMISSIONS, ROLE_LABELS } from '@/lib/rbac';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -11,6 +13,8 @@ export default function SettingsPage() {
   const qc = useQueryClient();
   const [healthStatus, setHealthStatus] = useState<null | 'ok' | 'error'>('ok');
   const [testing, setTesting] = useState(false);
+  const canManageSettings = usePermission(PERMISSIONS.SETTINGS_MANAGE);
+  const role = useRole();
 
   const testConnection = async () => {
     setTesting(true);
@@ -73,9 +77,16 @@ export default function SettingsPage() {
 
       <Section title="Account">
         <Row label={session?.user?.name ?? 'Signed In'} sub={session?.user?.email ?? ''}>
-          <button className="btn btn-danger" style={{ fontSize:11, padding:'5px 14px' }} onClick={() => signOut({ callbackUrl:'/auth/signin' })}>
-            Sign Out
-          </button>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            {role && (
+              <span style={{ fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)', border:'1px solid var(--border)', borderRadius:4, padding:'3px 8px', textTransform:'uppercase', letterSpacing:1 }}>
+                {ROLE_LABELS[role]}
+              </span>
+            )}
+            <button className="btn btn-danger" style={{ fontSize:11, padding:'5px 14px' }} onClick={() => signOut({ callbackUrl:'/auth/signin' })}>
+              Sign Out
+            </button>
+          </div>
         </Row>
       </Section>
 
@@ -92,18 +103,26 @@ export default function SettingsPage() {
         ))}
       </Section>
 
-      <Section title="Danger Zone">
-        <Row label="Clear Query Cache" sub="Forces a fresh fetch of all data">
-          <button className="btn btn-danger" style={{ fontSize:11, padding:'5px 14px' }} onClick={() => qc.clear()}>
-            Clear Cache
-          </button>
-        </Row>
-        <Row label="Reset App Settings" sub="Restores default refresh interval and page size">
-          <button className="btn btn-danger" style={{ fontSize:11, padding:'5px 14px' }} onClick={() => { setRefreshInterval(60000); setSessionsPerPage(20); }}>
-            Reset
-          </button>
-        </Row>
-      </Section>
+      {canManageSettings ? (
+        <Section title="Danger Zone">
+          <Row label="Clear Query Cache" sub="Forces a fresh fetch of all data">
+            <button className="btn btn-danger" style={{ fontSize:11, padding:'5px 14px' }} onClick={() => qc.clear()}>
+              Clear Cache
+            </button>
+          </Row>
+          <Row label="Reset App Settings" sub="Restores default refresh interval and page size">
+            <button className="btn btn-danger" style={{ fontSize:11, padding:'5px 14px' }} onClick={() => { setRefreshInterval(60000); setSessionsPerPage(20); }}>
+              Reset
+            </button>
+          </Row>
+        </Section>
+      ) : (
+        <Section title="Danger Zone">
+          <div style={{ fontSize:11, color:'var(--text3)', fontFamily:'var(--mono)', padding:'8px 0' }}>
+            Restricted to Admins.
+          </div>
+        </Section>
+      )}
     </div>
   );
 }

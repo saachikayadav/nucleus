@@ -1,130 +1,168 @@
 'use client';
-
 import { useState } from 'react';
-import { motion, Variants, AnimatePresence } from 'framer-motion';
+import { DEVICES, RESPONDERS } from '@/config/fleet';
+import { useNucleusStore } from '@/store/useNucleusStore';
+import { usePermission } from '@/hooks';
+import { PERMISSIONS } from '@/lib/rbac';
+import { getDeviceAlerts, DeviceAlertSeverity } from '@/lib/deviceAlerts';
+import { getResponderForDevice, getDeviceForResponder } from '@/lib/deviceAssignments';
 
-// --- MOCK DEVICE FLEET DATA ---
-const MOCK_DEVICES = [
-  { id: 'VK-7701', model: 'Valkyra Pro V2', firmware: 'v4.1.2', battery: 88, status: 'Online', lastSync: 'Just now', assignedTo: 'Sgt. Elias Vance' },
-  { id: 'VK-7702', model: 'Valkyra Pro V2', firmware: 'v4.1.2', battery: 12, status: 'Low Battery', lastSync: '2 mins ago', assignedTo: 'Cpl. Sarah Jenkins' },
-  { id: 'VK-7705', model: 'Valkyra Lite', firmware: 'v3.9.0', battery: 45, status: 'Sync Error', lastSync: '4 hours ago', assignedTo: 'Pvt. James Cobb' },
-  { id: 'VK-7709', model: 'Valkyra Pro V2', firmware: 'v4.1.2', battery: 0, status: 'Offline', lastSync: '2 days ago', assignedTo: 'Unassigned' },
-  { id: 'VK-7712', model: 'Valkyra Pro V1', firmware: 'v3.8.5', battery: 100, status: 'Online', lastSync: '1 min ago', assignedTo: 'Unassigned' },
-];
+type FilterType = 'all' | 'LIVE' | 'ONLINE' | 'IDLE' | 'OFFLINE';
 
-// --- ANIMATIONS ---
-const staggerContainer: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-};
+const batteryColor = (pct: number) => pct >= 60 ? 'var(--green)' : pct >= 30 ? 'var(--amber)' : 'var(--red)';
+const severityBadgeClass = (s: DeviceAlertSeverity) => s === 'critical' ? 'badge-red' : 'badge-warn';
 
 export default function DevicesPage() {
-  const [modalOpen, setModalOpen] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterType>('all');
+  const canManage = usePermission(PERMISSIONS.DEVICES_MANAGE);
+  const assignments = useNucleusStore((s) => s.deviceAssignments);
+  const assignDevice = useNucleusStore((s) => s.assignDevice);
+  const unassignDevice = useNucleusStore((s) => s.unassignDevice);
+  const addToast = useNucleusStore((s) => s.addToast);
 
-  // Filter out any devices that are not healthy to show in the top alert banner
-  const alerts = MOCK_DEVICES.filter(d => d.status !== 'Online');
+  const stats = { live: DEVICES.filter(d=>d.status==='LIVE').length, online: DEVICES.filter(d=>d.status==='ONLINE').length, idle: DEVICES.filter(d=>d.status==='IDLE').length, offline: DEVICES.filter(d=>d.status==='OFFLINE').length };
+  const totalOnline = stats.live + stats.online;
+  const total = DEVICES.length;
+
+  const filtered = filter === 'all' ? DEVICES : DEVICES.filter(d => d.status === filter);
+  const alerts = getDeviceAlerts(DEVICES);
+
+  const dotClass = (s: string) => s === 'LIVE' || s === 'ONLINE' ? 'd-online' : s === 'IDLE' ? 'd-idle' : 'd-offline';
+
+  const onlinePct = Math.round((totalOnline / total) * 100);
+  const r = 40, circ = 2 * Math.PI * r;
+
+  const handleAssignChange = (deviceId: string, responderId: string) => {
+    if (!responderId) {
+      unassignDevice(deviceId);
+      addToast({ type: 'success', message: `Device ${deviceId} unassigned.` });
+      return;
+    }
+    const responder = RESPONDERS.find(resp => resp.id === responderId);
+    assignDevice(deviceId, responderId);
+    addToast({ type: 'success', message: `Device ${deviceId} assigned to ${responder?.name ?? responderId}.` });
+  };
 
   return (
-    <div className="pb-32">
-
-      {/* HEALTH ALERTS BANNER */}
-      <AnimatePresence>
-        {alerts.length > 0 && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }} 
-            animate={{ opacity: 1, y: 0 }} 
-            className="card" 
-            style={{ marginBottom: 24, background: 'rgba(248,113,113,0.05)', borderColor: 'rgba(248,113,113,0.3)', padding: '16px 20px' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(248,113,113,0.8)]" />
-              <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--red)', textTransform: 'uppercase', letterSpacing: 2 }}>
-                System Alerts ({alerts.length})
-              </span>
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-              {alerts.map(a => (
-                <div key={`alert-${a.id}`} style={{ padding: 12, background: 'rgba(0,0,0,0.4)', borderRadius: 6, border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--text)', marginBottom: 4, fontFamily: 'var(--mono)' }}>{a.id}</div>
-                  <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: a.status === 'Low Battery' ? 'var(--amber)' : 'var(--red)' }}>
-                    {a.status} · Last Sync: {a.lastSync}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* DEVICE GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        <motion.div variants={staggerContainer} initial="hidden" animate="show" className="contents">
-          {MOCK_DEVICES.map((d) => {
-            const isOnline = d.status === 'Online';
-            const isWarning = d.status === 'Low Battery' || d.status === 'Sync Error';
-            
-            return (
-              <motion.div 
-                variants={{ hidden: { opacity: 0, scale: 0.95 }, show: { opacity: 1, scale: 1 } }} 
-                key={d.id} 
-                className="card relative overflow-hidden" 
-                style={{ display: 'flex', flexDirection: 'column', padding: '20px' }}
-              >
-                {/* Top Status Border */}
-                <div className="absolute top-0 left-0 w-full h-1" style={{ background: isOnline ? 'var(--cyan)' : isWarning ? 'var(--amber)' : 'var(--red)' }} />
-                
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-                  <div>
-                    <div style={{ fontSize: 18, fontWeight: 'bold', fontFamily: 'var(--mono)', color: 'var(--text)' }}>{d.id}</div>
-                    <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 4 }}>
-                      {d.model} <span style={{ opacity: 0.5 }}>·</span> {d.firmware}
-                    </div>
-                  </div>
-                  <span className={`triage-badge ${isOnline ? 'triage-Blue' : isWarning ? 'triage-Orange' : 'triage-Red'} uppercase`}>
-                    {d.status}
-                  </span>
-                </div>
-
-                {/* Battery Indicator */}
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text2)', marginBottom: 8 }}>
-                    <span>Internal Battery</span>
-                    <span style={{ color: d.battery > 20 ? 'var(--green)' : 'var(--red)' }}>{d.battery}%</span>
-                  </div>
-                  <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${d.battery}%`, background: d.battery > 20 ? 'var(--green)' : 'var(--red)', boxShadow: `0 0 8px ${d.battery > 20 ? 'var(--green)' : 'var(--red)'}` }} />
-                  </div>
-                </div>
-
-                {/* Assignment Box */}
-                <div style={{ flex: 1, padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: 6, border: '1px solid var(--border)', marginBottom: 16 }}>
-                  <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 1 }}>Assigned Responder</div>
-                  <div style={{ fontSize: 13, color: d.assignedTo === 'Unassigned' ? 'var(--text3)' : 'var(--text)' }}>
-                    {d.assignedTo}
-                  </div>
-                </div>
-
-                {/* Action Button */}
-                <button 
-                  onClick={() => setModalOpen(d.id)}
-                  className="btn" 
-                  style={{ 
-                    width: '100%', 
-                    justifyContent: 'center', 
-                    padding: '10px',
-                    borderColor: d.assignedTo === 'Unassigned' ? 'rgba(34,211,238,0.4)' : 'var(--border)', 
-                    color: d.assignedTo === 'Unassigned' ? 'var(--cyan)' : 'var(--text2)',
-                    background: d.assignedTo === 'Unassigned' ? 'rgba(34,211,238,0.05)' : 'transparent'
-                  }}
-                >
-                  {d.assignedTo === 'Unassigned' ? '+ ASSIGN TO MEDIC' : 'MANAGE ASSIGNMENT'}
-                </button>
-              </motion.div>
-            );
-          })}
-        </motion.div>
+    <>
+      <div style={{ display:'flex', gap:12, marginBottom:20 }}>
+        <div style={{ flex:1, background:'var(--glass)', border:'1px solid var(--border)', borderRadius:'var(--r)', padding:'16px 18px', display:'flex', alignItems:'center', gap:20 }}>
+          <svg width={100} height={100} viewBox="0 0 100 100">
+            <circle cx={50} cy={50} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={10} />
+            <circle cx={50} cy={50} r={r} fill="none" stroke="var(--green)" strokeWidth={10}
+              strokeDasharray={circ} strokeDashoffset={circ * (1 - onlinePct/100)}
+              strokeLinecap="round" transform="rotate(-90 50 50)" style={{ filter:'drop-shadow(0 0 6px var(--green))' }} />
+            <text x={50} y={50} textAnchor="middle" dominantBaseline="middle" fill="#86efac" fontSize={18} fontWeight={700} fontFamily="Syne">{totalOnline}/{total}</text>
+          </svg>
+          <div>
+            <div style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)', letterSpacing:2, marginBottom:8, textTransform:'uppercase' }}>Fleet Health</div>
+            <div style={{ fontSize:28, fontWeight:800, color:'var(--green)', letterSpacing:-1 }}>{onlinePct}%</div>
+            <div style={{ fontSize:11, color:'var(--text3)', fontFamily:'var(--mono)' }}>Online · {totalOnline} of {total} devices</div>
+          </div>
+        </div>
+        {[{label:'LIVE',value:stats.live,color:'var(--green)'},{label:'ONLINE',value:stats.online,color:'var(--cyan)'},{label:'IDLE',value:stats.idle,color:'var(--amber)'},{label:'OFFLINE',value:stats.offline,color:'var(--text3)'}].map(s => (
+          <div key={s.label} style={{ flex:1, background:'var(--glass)', border:'1px solid var(--border)', borderRadius:'var(--r)', padding:'14px 18px', textAlign:'center' }}>
+            <div style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)', letterSpacing:2, marginBottom:6, textTransform:'uppercase' }}>{s.label}</div>
+            <div style={{ fontSize:28, fontWeight:800, color:s.color, letterSpacing:-1 }}>{s.value}</div>
+          </div>
+        ))}
       </div>
-    </div>
+
+      <div className="card" style={{ marginBottom:20 }}>
+        <div className="card-header">
+          <span className="card-title">Fleet Alerts</span>
+          {alerts.length > 0
+            ? <span className="badge badge-red">{alerts.length} ACTIVE</span>
+            : <span className="badge badge-live">ALL CLEAR</span>}
+        </div>
+        {alerts.length === 0 ? (
+          <div style={{ padding:'16px 18px', fontSize:12, color:'var(--text3)', fontFamily:'var(--mono)' }}>✓ All systems nominal — no offline, low-battery, or sync-failure devices.</div>
+        ) : (
+          <div style={{ padding:'6px 0' }}>
+            {alerts.map((a, i) => (
+              <div key={`${a.deviceId}-${a.type}-${i}`} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 18px', borderBottom: i < alerts.length-1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                <span className={`badge ${severityBadgeClass(a.severity)}`}>{a.severity === 'critical' ? 'CRITICAL' : 'WARNING'}</span>
+                <span style={{ fontSize:12, color:'var(--text2)' }}>{a.message}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display:'flex', gap:6, marginBottom:14 }}>
+        {(['all','LIVE','ONLINE','IDLE','OFFLINE'] as const).map(f => (
+          <button key={f} className="btn" style={{ fontSize:11, padding:'5px 12px', ...(filter===f ? {borderColor:'rgba(59,130,246,0.5)',color:'#93c5fd'} : {}) }} onClick={() => setFilter(f)}>
+            {f === 'all' ? 'All' : f}
+          </button>
+        ))}
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">AR Device Fleet · XREAL Systems</span>
+          <span style={{ fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)' }}>{filtered.length} devices</span>
+        </div>
+        <div style={{ overflowX:'auto' }}>
+        <table className="data-table">
+          <thead><tr><th>Device</th><th>Model</th><th>Firmware</th><th>Battery</th><th>Assigned To</th><th>Unit</th><th>Status</th><th>Last Sync</th></tr></thead>
+          <tbody>
+            {filtered.map(d => {
+              const assignedResponder = getResponderForDevice(d.id, assignments);
+              return (
+              <tr key={d.id}>
+                <td style={{ fontFamily:'var(--mono)', fontSize:12, fontWeight:700, color:'var(--text)' }}>
+                  {d.serial}
+                  {d.sync_failed && <span className="badge badge-warn" style={{ marginLeft:8 }}>SYNC FAILED</span>}
+                </td>
+                <td style={{ color:'var(--text)' }}>{d.model}</td>
+                <td style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)' }}>{d.firmware}</td>
+                <td>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <div style={{ width:44, height:5, borderRadius:3, background:'rgba(255,255,255,0.06)', overflow:'hidden' }}>
+                      <div style={{ width:`${d.battery_pct}%`, height:'100%', borderRadius:3, background:batteryColor(d.battery_pct) }} />
+                    </div>
+                    <span style={{ fontSize:11, fontFamily:'var(--mono)', fontWeight:600, color:batteryColor(d.battery_pct) }}>{d.battery_pct}%</span>
+                  </div>
+                </td>
+                <td style={{ fontFamily:'var(--mono)', fontSize:11 }}>
+                  {canManage ? (
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      <select
+                        className="form-select"
+                        style={{ padding:'4px 8px', fontSize:11, width:170 }}
+                        value={assignedResponder?.id ?? ''}
+                        onChange={(e) => handleAssignChange(d.id, e.target.value)}
+                      >
+                        <option value="">— Unassigned —</option>
+                        {RESPONDERS.map(resp => {
+                          const otherDevice = getDeviceForResponder(resp.id, assignments);
+                          const hint = otherDevice && otherDevice.id !== d.id ? ` (currently on ${otherDevice.serial})` : '';
+                          return <option key={resp.id} value={resp.id}>{resp.name}{hint}</option>;
+                        })}
+                      </select>
+                      {assignedResponder && (
+                        <button className="btn" style={{ fontSize:10, padding:'4px 8px' }} onClick={() => handleAssignChange(d.id, '')}>Unassign</button>
+                      )}
+                    </div>
+                  ) : (
+                    assignedResponder?.name ?? <span style={{ color:'var(--text3)' }}>Unassigned</span>
+                  )}
+                </td>
+                <td style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)' }}>{d.unit}</td>
+                <td>
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <div className={`d-status ${dotClass(d.status)}`} />
+                    <span style={{ fontSize:10, fontFamily:'var(--mono)', color: d.status==='LIVE'||d.status==='ONLINE' ? 'var(--green)' : d.status==='IDLE' ? 'var(--amber)' : 'var(--text3)' }}>{d.status}</span>
+                  </div>
+                </td>
+                <td style={{ fontFamily:'var(--mono)', fontSize:11, color:d.status==='LIVE'?'var(--green)':'var(--text3)' }}>{d.last_sync}</td>
+              </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </>
   );
 }

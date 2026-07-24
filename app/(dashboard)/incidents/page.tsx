@@ -1,7 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useIncidents, useResolveIncident } from '@/hooks';
+import { useIncidents, useResolveIncident, usePermission } from '@/hooks';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PERMISSIONS } from '@/lib/rbac';
 
 // --- Live Mission Clock Component ---
 function MissionClock({ startTime }: { startTime: string }) {
@@ -30,6 +31,7 @@ function MissionClock({ startTime }: { startTime: string }) {
 export default function IncidentsPage() {
   const { data: incidentsData } = useIncidents();
   const { mutate: resolve } = useResolveIncident();
+  const canResolve = usePermission(PERMISSIONS.INCIDENTS_RESOLVE);
   const incidents = incidentsData?.incidents ?? [];
   
   // Filter exclusively to ACTIVE incidents
@@ -107,12 +109,14 @@ export default function IncidentsPage() {
                     <button className="px-4 py-2 bg-white/5 border border-white/10 text-white text-[10px] font-mono rounded hover:bg-white/10 transition-colors">
                       RADIO
                     </button>
-                    <button 
-                      onClick={() => resolve(inc.id)}
-                      className="px-4 py-2 bg-green-500/10 border border-green-500/30 text-green-400 text-[10px] font-mono rounded hover:bg-green-500/20 transition-colors"
-                    >
-                      MARK RESOLVED
-                    </button>
+                    {canResolve && (
+                      <button
+                        onClick={() => resolve(inc.id)}
+                        className="px-4 py-2 bg-green-500/10 border border-green-500/30 text-green-400 text-[10px] font-mono rounded hover:bg-green-500/20 transition-colors"
+                      >
+                        MARK RESOLVED
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               );

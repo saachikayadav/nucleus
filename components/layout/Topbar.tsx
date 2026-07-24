@@ -3,6 +3,8 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNucleusStore } from '@/store/useNucleusStore';
+import { usePermission } from '@/hooks';
+import { PERMISSIONS } from '@/lib/rbac';
 
 const TITLES: Record<string, string> = {
   '/overview':       'Command Overview',
@@ -13,8 +15,11 @@ const TITLES: Record<string, string> = {
   '/devices':        'AR Devices',
   '/ai-performance': 'AI Performance',
   '/heatmaps':       'Heatmaps',
+  '/escalations':    'Escalation Frequency',
+  '/mortality':      'Mortality Rate',
   '/settings':       'Settings',
   '/training-intel': 'Training Intelligence',
+  '/my-sessions':    'My Sessions',
 };
 
 export default function Topbar() {
@@ -23,6 +28,7 @@ export default function Topbar() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const qc = useQueryClient();
   const setIncidentModalOpen = useNucleusStore((s) => s.setIncidentModalOpen);
+  const canCreateIncident = usePermission(PERMISSIONS.INCIDENTS_CREATE);
 
   // --- Clock Engine ---
   useEffect(() => {
@@ -68,16 +74,15 @@ export default function Topbar() {
           <div className="pulse-dot" />
           LIVE
         </div>
-        
-        <button 
-          className="btn flex items-center gap-2" 
+        <button
+          className="btn flex items-center gap-2"
           onClick={handleRefresh}
           disabled={isRefreshing}
         >
-          <svg 
-            className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-cyan-400' : ''}`} 
-            fill="none" 
-            viewBox="0 0 24 24" 
+          <svg
+            className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-cyan-400' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
             stroke="currentColor"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -85,9 +90,11 @@ export default function Topbar() {
           {isRefreshing ? 'SYNCING...' : 'REFRESH'}
         </button>
 
-        <button className="btn btn-accent" onClick={() => setIncidentModalOpen(true)}>
-          + New Incident
-        </button>
+        {canCreateIncident && (
+          <button className="btn btn-accent" onClick={() => setIncidentModalOpen(true)}>
+            + New Incident
+          </button>
+        )}
       </div>
     </div>
   );
