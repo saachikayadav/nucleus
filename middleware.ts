@@ -1,6 +1,7 @@
 import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
 import { DEV_ROLE_COOKIE, DEV_ROLE_SWITCH_ENABLED, isValidRole } from '@/lib/devRole';
+import { hasPermission, PERMISSIONS } from '@/lib/rbac';
 
 // Command-center / operational pages — aggregate data across all patients.
 // Patients are redirected away from these to their own session list.
@@ -17,6 +18,15 @@ const OPERATIONS_ROUTES = [
   '/mortality',
 ];
 
+// Routes further restricted to admin (doctors have OPERATIONS_VIEW but not
+// these) — anyone lacking the permission is bounced to /overview.
+const RESTRICTED_ROUTES: [string, (typeof PERMISSIONS)[keyof typeof PERMISSIONS]][] = [
+  ['/ai-performance', PERMISSIONS.AI_PERFORMANCE_VIEW],
+  ['/analytics', PERMISSIONS.ANALYTICS_VIEW],
+  ['/responders', PERMISSIONS.RESPONDERS_VIEW],
+  ['/devices', PERMISSIONS.DEVICES_VIEW],
+];
+
 export default withAuth(
   function middleware(req) {
     // TEMPORARY testing override — see lib/devRole.ts. No-ops unless
@@ -29,6 +39,11 @@ export default withAuth(
 
     if (role === 'patient' && OPERATIONS_ROUTES.some((route) => pathname.startsWith(route))) {
       return NextResponse.redirect(new URL('/my-sessions', req.url));
+    }
+
+    const restricted = RESTRICTED_ROUTES.find(([route]) => pathname.startsWith(route));
+    if (restricted && !hasPermission(role, restricted[1])) {
+      return NextResponse.redirect(new URL('/overview', req.url));
     }
 
     return NextResponse.next();

@@ -74,12 +74,27 @@ export default function Sidebar() {
   const { data: session } = useSession();
   const role = useRole();
   const canViewOperations = usePermission(PERMISSIONS.OPERATIONS_VIEW);
+  const canViewAiPerformance = usePermission(PERMISSIONS.AI_PERFORMANCE_VIEW);
+  const canViewAnalytics = usePermission(PERMISSIONS.ANALYTICS_VIEW);
+  const canViewResponders = usePermission(PERMISSIONS.RESPONDERS_VIEW);
+  const canViewDevices = usePermission(PERMISSIONS.DEVICES_VIEW);
   const isTestOverride = DEV_ROLE_SWITCH_ENABLED && !!readDevRoleCookie();
   const { data: summary } = useSummary(canViewOperations);
   const redCount = summary?.triage_distribution?.Red?.count ?? 0;
   const deviceAlertCount = getDeviceAlerts(DEVICES).length;
   const badgeCounts: Record<string, number> = { '/incidents': redCount, '/devices': deviceAlertCount };
-  const nav = canViewOperations ? NAV : PATIENT_NAV;
+  const restrictedRoutes: Record<string, boolean> = {
+    '/ai-performance': canViewAiPerformance,
+    '/analytics': canViewAnalytics,
+    '/responders': canViewResponders,
+    '/devices': canViewDevices,
+  };
+  const nav = (canViewOperations ? NAV : PATIENT_NAV)
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => restrictedRoutes[item.href] ?? true),
+    }))
+    .filter((group) => group.items.length > 0);
 
   const initials = session?.user?.name
     ?.split(' ')
