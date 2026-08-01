@@ -21,7 +21,6 @@ const PROACTIVE_MESSAGES = [
 
 // ==========================================
 // 1. THE WRAPPER 
-// ==========================================
 export default function GlobalChatbot() {
   const { data: session, status } = useSession();
   const role = useRole();
