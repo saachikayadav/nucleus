@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import '../styles/globals.css';
 import Providers from './providers';
+import GlobalChatbot from '@/components/GlobalChatbot';
 
 export const metadata: Metadata = {
   title: 'Valkyra Nucleus — Command Center',
@@ -15,8 +16,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="bg-grid" />
         <div className="orb orb-1" />
         <div className="orb orb-2" />
-        <Providers>{children}</Providers>
+        <Providers>{children}<GlobalChatbot /></Providers>
       </body>
     </html>
   );
 }
+
