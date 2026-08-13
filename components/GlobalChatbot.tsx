@@ -343,8 +343,9 @@ function OracleChatCore({ session, role }: { session: any, role: string | null }
         .cyber-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(34,211,238,0.6); }
       `}} />
 
-      {/* 🛡️ THE FIX: This outer container is now a motion.div that slides in from the right */}
+      {/* 🛡️ THE FIX: Added id="spotlight-bot" to this wrapper so the Tour Engine can track it */}
       <motion.div 
+        id="spotlight-bot"
         initial={{ x: 200, opacity: 0 }} 
         animate={{ x: 0, opacity: 1 }} 
         transition={{ type: 'spring', damping: 20, stiffness: 120, delay: 0.2 }}
@@ -355,20 +356,41 @@ function OracleChatCore({ session, role }: { session: any, role: string | null }
           onMouseEnter={() => { setIsHovered(true); setTooltipText("Click to deploy Valkyra AI."); setShowTooltip(true); }}
           onMouseLeave={() => { setIsHovered(false); setShowTooltip(false); }}
         >
+          {/* 🛡️ NEW THOUGHT CLOUD BUBBLE */}
           <AnimatePresence>
             {(!isOpen && showTooltip) && (
               <motion.div 
-                initial={{ opacity: 0, x: 15, y: '-50%', scale: 0.95 }}
-                animate={{ opacity: 1, x: 0, y: '-50%', scale: 1 }}
-                exit={{ opacity: 0, x: 10, y: '-50%', scale: 0.95 }}
-                className="absolute top-1/2 right-[100%] mr-2 w-max max-w-[240px] px-4 py-3 rounded-lg shadow-2xl pointer-events-auto cursor-pointer"
-                style={{ background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(34,211,238,0.3)', backdropFilter: 'blur(10px)' }}
+                initial={{ opacity: 0, x: 10, y: 15, scale: 0.9 }}
+                animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 5, y: 10, scale: 0.95 }}
+                // Positioning it above and to the left of the head
+                className="absolute bottom-[75%] right-[75%] w-max max-w-[240px] pointer-events-auto cursor-pointer z-50"
                 onClick={() => setIsOpen(true)}
               >
-                <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--cyan)', lineHeight: 1.4 }}>
-                  {tooltipText}
-                </div>
-                <div className="absolute top-1/2 -right-1.5 transform -translate-y-1/2 w-3 h-3 bg-[#0f172a] border-t border-r border-cyan-400/30 rotate-45" />
+                <motion.div 
+                  animate={{ y: [0, -4, 0] }}
+                  transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+                  className="relative flex flex-col items-end hover:brightness-125 transition-all"
+                >
+                  {/* Main Cloud Bubble */}
+                  <div className="relative z-10 px-4 py-2.5 bg-[#060a12]/95 border border-cyan-500/40 rounded-2xl backdrop-blur-md shadow-[0_0_20px_rgba(34,211,238,0.15)]">
+                    <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--cyan)', lineHeight: 1.4 }}>
+                      {tooltipText}
+                    </div>
+                  </div>
+
+                  {/* Thought Trail Dots (Leading diagonally down toward the bot's head) */}
+                  <motion.div 
+                    animate={{ y: [0, -2, 0] }} 
+                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
+                    className="absolute -bottom-2.5 right-6 w-2.5 h-2.5 rounded-full bg-[#060a12] border border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.15)] pointer-events-none" 
+                  />
+                  <motion.div 
+                    animate={{ y: [0, -1.5, 0] }} 
+                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
+                    className="absolute -bottom-5 right-2 w-1.5 h-1.5 rounded-full bg-[#060a12] border border-cyan-500/40 shadow-[0_0_5px_rgba(34,211,238,0.15)] pointer-events-none" 
+                  />
+                </motion.div>
               </motion.div>
             )}
           </AnimatePresence>

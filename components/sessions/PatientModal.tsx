@@ -35,7 +35,6 @@ function imgTile(path: string, label: string, onOpen: (p: string, l: string) => 
   );
 }
 
-// PDF Image Map Definition
 const PDF_IMAGES = [
   { key: 'cropped_image', label: 'Source Crop' },
   { key: 'segmentation_mask', label: 'Segmentation Mask' },
@@ -60,7 +59,6 @@ export default function PatientModal() {
   const [transmitStatus, setTransmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isExporting, setIsExporting] = useState(false);
 
-  // BUG 3 FIX: Reset all states when a new patient is opened
   useEffect(() => {
     if (activePatientId) {
       setActiveTab('analytics');
@@ -101,7 +99,6 @@ export default function PatientModal() {
 
   const vitals = { hr: 98, bp: '134/88', rr: 18, spo2: 96 };
   
-  // BUG 1 FIX: Dynamic Timeline based on all available frames
   const timelineEvents = [
     { time: '08:40:02 PM', e: 'Headset uplink stream configured by field unit.', color: 'rgba(255,255,255,0.5)' },
     ...frames.map((f: any, idx: number) => ({
@@ -116,7 +113,6 @@ export default function PatientModal() {
     setIsTransmitting(true);
     setTransmitStatus('idle');
     
-    // Construct the payload to send to the hospital
     const hospitalPayload = {
       incidentId: s?.session_id,
       timestamp: s?.created_at,
@@ -141,7 +137,6 @@ export default function PatientModal() {
     }
   };
 
-  // FULL DOCUMENT PDF EXPORT LOGIC
   const handlePdfExport = async () => {
     setIsExporting(true);
     const element = document.getElementById('full-document-hidden-print');
@@ -160,7 +155,6 @@ export default function PatientModal() {
 
       const imgData = canvas.toDataURL('image/png');
       
-      // Calculate dynamic height to fit continuous content
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'px',
@@ -179,7 +173,9 @@ export default function PatientModal() {
   return (
     <>
       <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setActivePatientId(null); }}>
-        <div className="modal modal-wide" style={{ display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
+        
+        {/* 🛡️ CORRECTED ID: spotlight-modal-container */}
+        <div id="spotlight-modal-container" className="modal modal-wide" style={{ display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
           
           <div className="modal-header">
             <div>
@@ -194,7 +190,6 @@ export default function PatientModal() {
             </div>
           </div>
 
-          {/* TAB NAVIGATION */}
           <div style={{ display: 'flex', gap: 20, padding: '0 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.01)' }}>
             {[
               { id: 'analytics', label: 'AI Core Analytics' },
@@ -229,7 +224,6 @@ export default function PatientModal() {
               </>
             ) : s ? (
               <>
-                {/* TAB 1: ORIGINAL ANALYTICS UI */}
                 {activeTab === 'analytics' && (
                   <div>
                     {frames.length > 1 && (
@@ -316,7 +310,6 @@ export default function PatientModal() {
                   </div>
                 )}
 
-                {/* TAB 2: TIMELINE & VITALS */}
                 {activeTab === 'timeline' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                     <div>
@@ -351,7 +344,6 @@ export default function PatientModal() {
                   </div>
                 )}
 
-                {/* TAB 3: PRE-ARRIVAL DESK */}
                 {activeTab === 'pre-arrival' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     <div style={{ background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.2)', padding: 20, borderRadius: 8 }}>
@@ -374,8 +366,8 @@ export default function PatientModal() {
                       }}
                     >
                       {isTransmitting ? 'TRANSMITTING ENCRYPTED PAYLOAD...' : 
-                       transmitStatus === 'success' ? '✓ TRANSMITTED SECURELY TO HOSPITAL' : 
-                       'TRANSMIT PRE-ARRIVAL PAYLOAD'}
+                        transmitStatus === 'success' ? '✓ TRANSMITTED SECURELY TO HOSPITAL' : 
+                        'TRANSMIT PRE-ARRIVAL PAYLOAD'}
                     </button>
                   </div>
                 )}
@@ -388,13 +380,22 @@ export default function PatientModal() {
           <div className="modal-footer" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
             <div style={{ display: 'flex', gap: 10 }}>
                <button className="btn" onClick={() => setActivePatientId(null)}>Close</button>
-               <button className="btn" onClick={handlePdfExport} disabled={isExporting} style={{ borderColor: 'var(--cyan)', color: 'var(--cyan)' }}>
+               <button 
+                 className="btn" 
+                 onClick={handlePdfExport} 
+                 disabled={isExporting} 
+                 style={{ borderColor: 'var(--cyan)', color: 'var(--cyan)' }}
+               >
                  {isExporting ? 'Generating...' : '📄 Export Full PDF'}
                </button>
             </div>
             
             {s && gcs.gemini_report && (
-              <button className="btn btn-accent" onClick={() => openReport(gcs.gemini_report)}>
+              // 🛡️ CORRECTED SYNTAX: Clean Javascript comment
+              <button 
+                className="btn btn-accent" 
+                onClick={() => openReport(gcs.gemini_report)}
+              >
                 🤖 Gemini Report
               </button>
             )}
@@ -402,7 +403,6 @@ export default function PatientModal() {
         </div>
       </div>
 
-      {/* LIGHTBOX FOR IMAGES */}
       {lightbox && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, backdropFilter: 'blur(12px)', cursor: 'zoom-out' }}
           onClick={() => setLightbox(null)}>
@@ -413,12 +413,12 @@ export default function PatientModal() {
         </div>
       )}
 
-      {/* GEMINI REPORT VIEWER */}
       {reportText !== null && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, backdropFilter: 'blur(12px)' }}
           onClick={(e) => { if (e.target === e.currentTarget) setReportText(null); }}>
           <div style={{ width: '100%', maxWidth: 680, background: 'rgba(6,12,24,0.95)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              {/* 🛡️ CORRECTED SYNTAX: fontWeight is now camelCase */}
               <span style={{ fontSize: 12, fontWeight: 600, color: '#f0f4ff' }}>📄 Gemini Clinical Report</span>
               <div onClick={() => setReportText(null)} style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>✕</div>
             </div>
@@ -429,7 +429,6 @@ export default function PatientModal() {
         </div>
       )}
 
-      {/* BUG 2 FIX: EXPANDED FULL-DOCUMENT PDF GENERATOR ENGINE */}
       {s && (
         <div style={{ position: 'absolute', top: -9999, left: -9999, pointerEvents: 'none', opacity: 0 }}>
           <div id="full-document-hidden-print" style={{ width: 1000, padding: 40, background: '#060a12', color: '#fff', fontFamily: 'monospace' }}>
@@ -465,7 +464,6 @@ export default function PatientModal() {
                     </div>
                   </div>
 
-                  {/* Render ALL available images in a grid for the PDF */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 15, marginTop: 20 }}>
                     {PDF_IMAGES.map((imgDef) => {
                       if (!frameGcs[imgDef.key]) return null;

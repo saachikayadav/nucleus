@@ -7,6 +7,10 @@ import { PERMISSIONS } from '@/lib/rbac';
 import { getDeviceAlerts, DeviceAlertSeverity } from '@/lib/deviceAlerts';
 import { getResponderForDevice, getDeviceForResponder } from '@/lib/deviceAssignments';
 
+// 🛡️ IMPORTS FOR THE PERSONALIZED VOICE TOUR
+import { useSession } from 'next-auth/react';
+import VoiceTour, { TourStep } from '@/components/VoiceTour';
+
 type FilterType = 'all' | 'LIVE' | 'ONLINE' | 'IDLE' | 'OFFLINE';
 
 const batteryColor = (pct: number) => pct >= 60 ? 'var(--green)' : pct >= 30 ? 'var(--amber)' : 'var(--red)';
@@ -43,9 +47,36 @@ export default function DevicesPage() {
     addToast({ type: 'success', message: `Device ${deviceId} assigned to ${responder?.name ?? responderId}.` });
   };
 
+  // 🛡️ EXTRACT USER NAME FOR PERSONALIZED GREETING
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(' ')[0] || 'Commander';
+
+  // 🛡️ DYNAMIC SIMULATION STEPS
+  const PAGE_STEPS: TourStep[] = [
+    {
+      targetId: 'spotlight-fleet-health',
+      tag: 'SYSTEM DIAGNOSTICS',
+      title: 'Fleet Health Overview',
+      script: `Welcome to Device Management, ${firstName}. This diagnostic panel provides real-time connectivity status across your entire AR hardware fleet.`
+    },
+    {
+      targetId: 'spotlight-fleet-alerts',
+      tag: 'AUTOMATED OVERSIGHT',
+      title: 'Active Hardware Alerts',
+      script: 'Any critical hardware failures, battery warnings, or synchronization drops will be immediately flagged here for your attention.'
+    },
+    {
+      targetId: 'spotlight-device-table',
+      tag: 'INVENTORY CONTROL',
+      title: 'Device Assignment Registry',
+      script: 'This registry tracks individual unit telemetry. Administrators can use this interface to securely assign hardware to specific field responders. Briefing complete.'
+    }
+  ];
+
   return (
-    <>
-      <div style={{ display:'flex', gap:12, marginBottom:20 }}>
+    <div className="pb-24">
+      {/* 🛡️ TARGET 1: Fleet Health Stats */}
+      <div id="spotlight-fleet-health" style={{ display:'flex', gap:12, marginBottom:20 }}>
         <div style={{ flex:1, background:'var(--glass)', border:'1px solid var(--border)', borderRadius:'var(--r)', padding:'16px 18px', display:'flex', alignItems:'center', gap:20 }}>
           <svg width={100} height={100} viewBox="0 0 100 100">
             <circle cx={50} cy={50} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={10} />
@@ -68,7 +99,8 @@ export default function DevicesPage() {
         ))}
       </div>
 
-      <div className="card" style={{ marginBottom:20 }}>
+      {/* 🛡️ TARGET 2: Fleet Alerts */}
+      <div id="spotlight-fleet-alerts" className="card" style={{ marginBottom:20 }}>
         <div className="card-header">
           <span className="card-title">Fleet Alerts</span>
           {alerts.length > 0
@@ -97,7 +129,8 @@ export default function DevicesPage() {
         ))}
       </div>
 
-      <div className="card">
+      {/* 🛡️ TARGET 3: Device Registry Table */}
+      <div id="spotlight-device-table" className="card">
         <div className="card-header">
           <span className="card-title">AR Device Fleet · XREAL Systems</span>
           <span style={{ fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)' }}>{filtered.length} devices</span>
@@ -163,6 +196,9 @@ export default function DevicesPage() {
         </table>
         </div>
       </div>
-    </>
+
+      {/* 🛡️ INJECT THE TOUR ENGINE */}
+      <VoiceTour storageKey="valkyra-tour-devices" steps={PAGE_STEPS} />
+    </div>
   );
 }

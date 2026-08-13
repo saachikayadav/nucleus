@@ -5,6 +5,10 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 
+// 🛡️ IMPORTS FOR THE PERSONALIZED VOICE TOUR
+import { useSession } from 'next-auth/react';
+import VoiceTour, { TourStep } from '@/components/VoiceTour';
+
 // --- MOCK PERFORMANCE DATA ---
 const escalationData = [
   { injury: 'GSW - Torso', escalations: 45, aiResolved: 55 },
@@ -41,13 +45,33 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function AIPerformancePage() {
+  // 🛡️ EXTRACT USER NAME FOR PERSONALIZED GREETING
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(' ')[0] || 'Commander';
+
+  // 🛡️ DYNAMIC SIMULATION STEPS
+  const PAGE_STEPS: TourStep[] = [
+    {
+      targetId: 'spotlight-mortality',
+      tag: 'PREDICTIVE MODELING',
+      title: 'Mortality Prediction Engine',
+      script: `Welcome to AI Performance, ${firstName}. This module correlates the AI's real-time mortality risk predictions against actual post-incident outcomes to verify clinical accuracy.`
+    },
+    {
+      targetId: 'spotlight-escalation',
+      tag: 'SYSTEM AUTONOMY',
+      title: 'Doctor Escalation Frequency',
+      script: 'This chart tracks human intervention rates by injury classification, highlighting exactly when field responders bypass the AI to call a licensed MD. Briefing complete.'
+    }
+  ];
+
   return (
     <div className="pb-32">
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         
-        {/* MORTALITY TRACKING DASHBOARD */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ padding: 24 }}>
+        {/* 🛡️ TARGET 1: MORTALITY TRACKING DASHBOARD */}
+        <motion.div id="spotlight-mortality" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ padding: 24 }}>
           <div style={{ marginBottom: 24 }}>
             <h2 style={{ fontSize: 14, fontFamily: 'var(--mono)', color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: 1 }}>Mortality Prediction Engine</h2>
             <p style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 4 }}>Real-time AI Risk Prediction vs Post-Incident Actual Outcomes</p>
@@ -78,8 +102,8 @@ export default function AIPerformancePage() {
           </div>
         </motion.div>
 
-        {/* ESCALATION FREQUENCY */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="card" style={{ padding: 24 }}>
+        {/* 🛡️ TARGET 2: ESCALATION FREQUENCY */}
+        <motion.div id="spotlight-escalation" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="card" style={{ padding: 24 }}>
           <div style={{ marginBottom: 24 }}>
             <h2 style={{ fontSize: 14, fontFamily: 'var(--mono)', color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 1 }}>Doctor Escalation Frequency</h2>
             <p style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 4 }}>Human Intervention Rate by Injury Classification</p>
@@ -101,6 +125,10 @@ export default function AIPerformancePage() {
         </motion.div>
 
       </div>
+
+      {/* 🛡️ INJECT THE TOUR ENGINE */}
+      <VoiceTour storageKey="valkyra-tour-ai-performance" steps={PAGE_STEPS} />
+      
     </div>
   );
 }

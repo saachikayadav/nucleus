@@ -5,6 +5,10 @@ import { ESCALATIONS, INJURY_TYPES } from '@/config/escalations';
 import { RESPONDERS, INCIDENT_TYPES } from '@/config/fleet';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
+// 🛡️ IMPORTS FOR THE PERSONALIZED VOICE TOUR
+import { useSession } from 'next-auth/react';
+import VoiceTour, { TourStep } from '@/components/VoiceTour';
+
 type Period = 'week' | 'month' | '3months' | 'all';
 
 const PERIOD_LABELS: Record<Period, string> = {
@@ -69,6 +73,32 @@ export default function EscalationsPage() {
     );
   };
 
+  // 🛡️ EXTRACT USER NAME FOR PERSONALIZED GREETING
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(' ')[0] || 'Commander';
+
+  // 🛡️ DYNAMIC SIMULATION STEPS
+  const PAGE_STEPS: TourStep[] = [
+    {
+      targetId: 'spotlight-escalation-metrics',
+      tag: 'ESCALATION METRICS',
+      title: 'Overall Call Rates',
+      script: `Welcome to the Escalations dashboard, ${firstName}. Here we track the frequency at which field operators override the AI to request human medical intervention.`
+    },
+    {
+      targetId: 'spotlight-escalation-charts',
+      tag: 'BEHAVIORAL ANALYSIS',
+      title: 'Escalation Trends',
+      script: 'These modules break down doctor call rates by individual responder and specific injury types, helping identify where the AI is trusted least.'
+    },
+    {
+      targetId: 'spotlight-escalation-gaps',
+      tag: 'SYSTEM OPTIMIZATION',
+      title: 'AI Reinforcement Gaps',
+      script: 'The system automatically flags anomalous escalation patterns. These gaps indicate where our AI models require additional training data to improve field confidence. Briefing complete.'
+    }
+  ];
+
   return (
     <>
       <div style={{ background:'rgba(192,132,252,0.04)', border:'1px solid rgba(192,132,252,0.15)', borderRadius:10, padding:'10px 16px', marginBottom:20, fontSize:11, color:'var(--text3)', fontFamily:'var(--mono)' }}>
@@ -83,7 +113,8 @@ export default function EscalationsPage() {
         ))}
       </div>
 
-      <div className="metrics-grid" style={{ marginBottom:20 }}>
+      {/* 🛡️ TARGET 1: Escalation Metrics */}
+      <div id="spotlight-escalation-metrics" className="metrics-grid" style={{ marginBottom:20 }}>
         <div className="metric-card">
           <div className="metric-label">Total Escalations</div>
           <div className="metric-value" style={{ color:'var(--text)' }}>{escalatedCount}<span style={{ fontSize:12, color:'var(--text3)', fontWeight:400 }}> / {total} reviewed</span></div>
@@ -102,7 +133,8 @@ export default function EscalationsPage() {
         </div>
       </div>
 
-      <div className="mid-grid" style={{ marginBottom:20 }}>
+      {/* 🛡️ TARGET 2: Escalation Charts */}
+      <div id="spotlight-escalation-charts" className="mid-grid" style={{ marginBottom:20 }}>
         <div className="card">
           <div className="card-header"><span className="card-title">Doctor Call Rate by Responder</span><span className="badge badge-ai">STATIC DEMO</span></div>
           <div style={{ padding:'16px 18px' }}>
@@ -139,23 +171,29 @@ export default function EscalationsPage() {
         </div>
       </div>
 
-      <div className="section-hd"><div className="section-title">AI Reinforcement Gaps</div><span className="badge badge-warn">{gaps.length} FLAGGED</span></div>
-      <div className="card">
-        {gaps.length === 0 ? (
-          <div style={{ padding:'16px 18px', fontSize:12, color:'var(--text3)', fontFamily:'var(--mono)' }}>✓ No responder/injury-type combination exceeds the {GAP_THRESHOLD}% escalation threshold in this period.</div>
-        ) : (
-          <div style={{ padding:'6px 0' }}>
-            {gaps.map((g, i) => (
-              <div key={`${g.responder}-${g.type}`} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 18px', borderBottom: i < gaps.length-1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                <span className="badge badge-warn">{g.rate.toFixed(0)}%</span>
-                <span style={{ fontSize:12, color:'var(--text2)' }}>
-                  <strong style={{ color:'var(--text)' }}>{g.responder}</strong> × {injuryLabel(g.type)} — {g.escalated} of {g.count} reviews escalated to a doctor. Consider additional AI training data for {injuryLabel(g.type).toLowerCase()} assessments.
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* 🛡️ TARGET 3: AI Reinforcement Gaps (Wrapped in an ID container) */}
+      <div id="spotlight-escalation-gaps" className="pb-10">
+        <div className="section-hd"><div className="section-title">AI Reinforcement Gaps</div><span className="badge badge-warn">{gaps.length} FLAGGED</span></div>
+        <div className="card">
+          {gaps.length === 0 ? (
+            <div style={{ padding:'16px 18px', fontSize:12, color:'var(--text3)', fontFamily:'var(--mono)' }}>✓ No responder/injury-type combination exceeds the {GAP_THRESHOLD}% escalation threshold in this period.</div>
+          ) : (
+            <div style={{ padding:'6px 0' }}>
+              {gaps.map((g, i) => (
+                <div key={`${g.responder}-${g.type}`} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 18px', borderBottom: i < gaps.length-1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                  <span className="badge badge-warn">{g.rate.toFixed(0)}%</span>
+                  <span style={{ fontSize:12, color:'var(--text2)' }}>
+                    <strong style={{ color:'var(--text)' }}>{g.responder}</strong> × {injuryLabel(g.type)} — {g.escalated} of {g.count} reviews escalated to a doctor. Consider additional AI training data for {injuryLabel(g.type).toLowerCase()} assessments.
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* 🛡️ INJECT THE TOUR ENGINE */}
+      <VoiceTour storageKey="valkyra-tour-escalations" steps={PAGE_STEPS} />
     </>
   );
 }
