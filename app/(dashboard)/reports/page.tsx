@@ -7,6 +7,10 @@ import { useNucleusStore } from '@/store/useNucleusStore';
 import { pwatColor, formatDate } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 
+// 🛡️ IMPORTS FOR THE PERSONALIZED VOICE TOUR
+import { useSession } from 'next-auth/react';
+import VoiceTour, { TourStep } from '@/components/VoiceTour';
+
 // --- ANIMATION VARIANTS ---
 const staggerContainer: Variants = {
   hidden: { opacity: 0 },
@@ -46,6 +50,37 @@ export default function ReportsPage() {
       return matchesSearch && matchesTriage && matchesDate;
     });
   }, [sessions, searchQuery, triageFilter, dateRange]);
+
+  // 🛡️ EXTRACT USER NAME AND GRAB THE FIRST AVAILABLE SESSION
+  const { data: sessionData } = useSession();
+  const firstName = sessionData?.user?.name?.split(' ')[0] || 'Commander';
+  const firstSessionId = filteredSessions.length > 0 ? filteredSessions[0].session_id : null;
+
+  // 🛡️ DYNAMIC SIMULATION STEPS: Combined into 3 precise steps
+  const PAGE_STEPS: TourStep[] = [
+    {
+      targetId: 'spotlight-filters',
+      tag: 'DATA FILTERS',
+      title: 'Global Search & Triage',
+      script: `Welcome to the Incident Reports, ${firstName}. Use this console to filter historical cases by Session ID, Date Range, or Triage severity.`
+    },
+    {
+      targetId: 'spotlight-table',
+      tag: 'INCIDENT LOGS',
+      title: 'Batch Records',
+      script: 'This table compiles all historical telemetry. You can select multiple rows to generate a batch CSV or PDF export.'
+    },
+    {
+      targetId: 'spotlight-modal-container', // 🛡️ Targets the entire modal box
+      tag: 'CLINICAL EXPORT',
+      title: 'Detailed Case Telemetry',
+      script: 'Clicking an incident opens its full telemetry file. From here, you can review frame-by-frame metrics, request AI analysis, or export a detailed clinical PDF. Briefing complete.',
+      action: () => {
+        // Automatically open the modal right before this step is spoken
+        if (firstSessionId) setActivePatientId(firstSessionId);
+      }
+    }
+  ];
 
   // --- Selection Handlers ---
   const toggleSelection = (id: string, e: React.MouseEvent) => {
@@ -158,8 +193,8 @@ export default function ReportsPage() {
 
   return (
     <div className="pb-32">
-      {/* FILTER DECK */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center', background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+      {/* 🛡️ TARGET 1: FILTER DECK */}
+      <div id="spotlight-filters" style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center', background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
         
         {/* Search */}
         <div style={{ flex: 1, minWidth: '250px', position: 'relative' }}>
@@ -215,8 +250,8 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* DATA LIST CARD */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      {/* 🛡️ TARGET 2: DATA LIST CARD */}
+      <div id="spotlight-table" className="card" style={{ padding: 0, overflow: 'hidden' }}>
         
         {/* Table Header Area */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 24, padding: '16px 24px', borderBottom: '1px solid var(--border)', fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1, background: 'rgba(0,0,0,0.2)' }}>
@@ -238,7 +273,12 @@ export default function ReportsPage() {
           ) : (
             filteredSessions.map((s: any, i: number) => {
               const wm = s.wound_metrics || s.frames?.[0] || {};
-              const displayPwat = wm.pwat_score ?? s.pwat_score ?? '—';
+              let displayPwat = wm.pwat_score ?? s.pwat_score ?? '—';
+              
+              if (displayPwat !== '—' && !isNaN(Number(displayPwat))) {
+                  displayPwat = Number(displayPwat).toFixed(1);
+              }
+
               const isSelected = selectedIds.has(s.session_id);
               const isCompliant = s.triage_category === 'Green' || Math.random() > 0.2;
 
@@ -369,6 +409,13 @@ export default function ReportsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 🛡️ INJECT THE TOUR ENGINE AND AUTO-CLOSE MODAL WHEN DONE */}
+      <VoiceTour 
+        storageKey="valkyra-tour-reports" 
+        steps={PAGE_STEPS} 
+        onTourEnd={() => setActivePatientId(null)} 
+      />
     </div>
   );
 }

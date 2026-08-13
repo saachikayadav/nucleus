@@ -134,7 +134,7 @@ export default function Loader({ onComplete }: { onComplete?: () => void }) {
                 transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
                 className="text-sm md:text-xl font-mono tracking-[0.5em] text-cyan-500 mb-2 uppercase"
               >
-                Welcome to
+                Welcome to the
               </motion.div>
               
               <motion.div 

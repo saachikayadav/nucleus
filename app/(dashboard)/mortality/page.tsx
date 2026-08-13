@@ -5,6 +5,10 @@ import { predictedRiskPct, predictedOutcomeDeceased } from '@/lib/risk';
 import { INCIDENT_TYPES } from '@/config/fleet';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
+// 🛡️ IMPORTS FOR THE PERSONALIZED VOICE TOUR
+import { useSession } from 'next-auth/react';
+import VoiceTour, { TourStep } from '@/components/VoiceTour';
+
 const injuryLabel = (t: string) => INCIDENT_TYPES.find(i => i.value === t)?.label.split(' — ')[1] ?? t;
 const riskColor = (pct: number) => pct >= 20 ? 'var(--red)' : pct >= 10 ? 'var(--amber)' : 'var(--green)';
 
@@ -49,13 +53,40 @@ export default function MortalityPage() {
     );
   };
 
+  // 🛡️ EXTRACT USER NAME FOR PERSONALIZED GREETING
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(' ')[0] || 'Commander';
+
+  // 🛡️ DYNAMIC SIMULATION STEPS
+  const PAGE_STEPS: TourStep[] = [
+    {
+      targetId: 'spotlight-mortality-metrics',
+      tag: 'RISK ASSESSMENT',
+      title: 'Global Mortality Metrics',
+      script: `Welcome to the Mortality Prediction module, ${firstName}. This dashboard tracks the average AI-assigned risk levels across all active field operations.`
+    },
+    {
+      targetId: 'spotlight-mortality-active',
+      tag: 'LIVE TELEMETRY',
+      title: 'Active Incident Prediction',
+      script: 'For every live incident, the Valkyra system dynamically calculates a predicted mortality risk based on incoming triage data and wound telemetry.'
+    },
+    {
+      targetId: 'spotlight-mortality-calibration',
+      tag: 'MODEL ACCURACY',
+      title: 'Outcome Calibration',
+      script: 'Finally, the system cross-references these initial predictions against actual post-incident outcomes. This continuous feedback loop ensures our clinical models remain highly calibrated. Briefing complete.'
+    }
+  ];
+
   return (
-    <>
+    <div className="pb-10">
       <div style={{ background:'rgba(192,132,252,0.04)', border:'1px solid rgba(192,132,252,0.15)', borderRadius:10, padding:'10px 16px', marginBottom:20, fontSize:11, color:'var(--text3)', fontFamily:'var(--mono)' }}>
         ℹ Predicted risk and outcome are modeled estimates for demonstration — derived deterministically per incident, not from a live mortality-prediction service.
       </div>
 
-      <div className="metrics-grid" style={{ marginBottom:20 }}>
+      {/* 🛡️ TARGET 1: Metrics Grid */}
+      <div id="spotlight-mortality-metrics" className="metrics-grid" style={{ marginBottom:20 }}>
         <div className="metric-card">
           <div className="metric-label">Active Incidents</div>
           <div className="metric-value" style={{ color:'var(--text)' }}>{isLoading ? '—' : active.length}</div>
@@ -75,7 +106,9 @@ export default function MortalityPage() {
       </div>
 
       <div className="section-hd"><div className="section-title">Active Incidents · AI-Predicted Risk</div><span className="badge badge-live">LIVE</span></div>
-      <div className="card" style={{ marginBottom:20 }}>
+      
+      {/* 🛡️ TARGET 2: Active Incidents Table */}
+      <div id="spotlight-mortality-active" className="card" style={{ marginBottom:20 }}>
         {isLoading ? (
           <div style={{ padding:'20px 18px' }}>{[...Array(2)].map((_,i) => <div key={i} className="skeleton" style={{ height:14, marginBottom:10 }} />)}</div>
         ) : activeWithRisk.length === 0 ? (
@@ -102,7 +135,9 @@ export default function MortalityPage() {
       </div>
 
       <div className="section-hd"><div className="section-title">Post-Incident Outcome Tracking · Predicted vs. Actual</div></div>
-      <div className="card">
+      
+      {/* 🛡️ TARGET 3: Post-Incident Outcome Chart */}
+      <div id="spotlight-mortality-calibration" className="card">
         {resolvedWithOutcome.length === 0 ? (
           <div style={{ padding:'20px 18px', textAlign:'center', color:'var(--text3)', fontFamily:'var(--mono)', fontSize:12 }}>
             No resolved incidents yet — outcome calibration will appear here once incidents are resolved.
@@ -122,6 +157,10 @@ export default function MortalityPage() {
           </div>
         )}
       </div>
-    </>
+
+      {/* 🛡️ INJECT THE TOUR ENGINE */}
+      <VoiceTour storageKey="valkyra-tour-mortality" steps={PAGE_STEPS} />
+
+    </div>
   );
 }

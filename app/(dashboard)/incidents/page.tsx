@@ -4,6 +4,10 @@ import { useIncidents, useResolveIncident, usePermission } from '@/hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PERMISSIONS } from '@/lib/rbac';
 
+// 🛡️ IMPORTS FOR THE PERSONALIZED VOICE TOUR
+import { useSession } from 'next-auth/react';
+import VoiceTour, { TourStep } from '@/components/VoiceTour';
+
 // --- Live Mission Clock Component ---
 function MissionClock({ startTime }: { startTime: string }) {
   const [elapsed, setElapsed] = useState('00:00:00');
@@ -37,11 +41,31 @@ export default function IncidentsPage() {
   // Filter exclusively to ACTIVE incidents
   const activeIncidents = incidents.filter(i => i.status === 'Active');
 
+  // 🛡️ EXTRACT USER NAME FOR PERSONALIZED GREETING
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(' ')[0] || 'Commander';
+
+  // 🛡️ DYNAMIC SIMULATION STEPS
+  const PAGE_STEPS: TourStep[] = [
+    {
+      targetId: 'spotlight-incidents-header',
+      tag: 'LIVE OVERSIGHT',
+      title: 'Active Deployments',
+      script: `Welcome to Live Incidents, ${firstName}. This command center provides real-time oversight of all ongoing field operations.`
+    },
+    {
+      targetId: 'spotlight-incident-card-0',
+      tag: 'MISSION TELEMETRY',
+      title: 'Tactical Operation Status',
+      script: 'Each active mission tracks the deployed hardware, responder status, and a live T-MINUS mission clock. Commanders can coordinate or resolve operations directly from this console. Briefing complete.'
+    }
+  ];
+
   return (
     <div className="p-6 max-w-[1400px] mx-auto min-h-screen">
       
-      {/* Header */}
-      <div className="flex justify-between items-end mb-8">
+      {/* 🛡️ TARGET 1: Header */}
+      <div id="spotlight-incidents-header" className="flex justify-between items-end mb-8">
         <div>
           <p className="text-[11px] font-mono tracking-widest text-slate-400 uppercase">
             Active field operations requiring immediate oversight
@@ -68,6 +92,7 @@ export default function IncidentsPage() {
               return (
                 <motion.div 
                   key={inc.id}
+                  id={idx === 0 ? 'spotlight-incident-card-0' : undefined} /* 🛡️ TARGET 2: Highlights the very first card */
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
@@ -124,6 +149,10 @@ export default function IncidentsPage() {
           </AnimatePresence>
         </div>
       )}
+
+      {/* 🛡️ INJECT THE TOUR ENGINE */}
+      <VoiceTour storageKey="valkyra-tour-incidents-live" steps={PAGE_STEPS} />
+
     </div>
   );
 }

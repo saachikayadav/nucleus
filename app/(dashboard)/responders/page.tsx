@@ -4,6 +4,10 @@ import { useIncidents } from '@/hooks';
 import { useNucleusStore } from '@/store/useNucleusStore';
 import { getDeviceForResponder } from '@/lib/deviceAssignments';
 
+// 🛡️ IMPORTS FOR THE PERSONALIZED VOICE TOUR
+import { useSession } from 'next-auth/react';
+import VoiceTour, { TourStep } from '@/components/VoiceTour';
+
 const STATUS_CONFIG: Record<string, { cls: string; dot: string; label: string }> = {
   LIVE:    { cls: 'status-live',    dot: 'd-online',  label: 'LIVE' },
   ONLINE:  { cls: 'status-online',  dot: 'd-online',  label: 'ONLINE' },
@@ -24,9 +28,30 @@ export default function RespondersPage() {
 
   const incidentsHandled = (name: string) => incidents.filter(i => i.responder === name).length;
 
+  // 🛡️ EXTRACT USER NAME FOR PERSONALIZED GREETING
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(' ')[0] || 'Commander';
+
+  // 🛡️ STREAMLINED 2-STEP BRIEFING
+  const PAGE_STEPS: TourStep[] = [
+    {
+      targetId: 'spotlight-fleet-stats',
+      tag: 'FLEET COMMAND',
+      title: 'Active Roster Status',
+      script: `Welcome to the Responders roster, ${firstName}. This panel monitors the live deployment status of all active, idle, and offline field personnel.`
+    },
+    {
+      targetId: 'spotlight-responder-card-0', // Targets the very first card in the grid
+      tag: 'PERSONNEL TELEMETRY',
+      title: 'Field Agent Metrics',
+      script: 'Each profile tracks the agent\'s assigned hardware, live incident volume, and Valkyra system usage rates to ensure protocol compliance. Briefing complete.'
+    }
+  ];
+
   return (
     <>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+      {/* 🛡️ TARGET 1: The top stats row */}
+      <div id="spotlight-fleet-stats" style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         {[{ label:'Active', value:active, color:'var(--green)' }, { label:'Idle', value:idle, color:'var(--amber)' }, { label:'Offline', value:offline, color:'var(--text3)' }, { label:'Total', value:RESPONDERS.length, color:'var(--text)' }].map(s => (
           <div key={s.label} style={{ flex:1, background:'var(--glass)', border:'1px solid var(--border)', borderRadius:'var(--r)', padding:'14px 18px', textAlign:'center' }}>
             <div style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)', letterSpacing:2, textTransform:'uppercase', marginBottom:6 }}>{s.label}</div>
@@ -41,12 +66,16 @@ export default function RespondersPage() {
 
       <div className="section-hd"><div className="section-title">Field Responders · {RESPONDERS.length} Personnel</div></div>
       <div className="responder-grid">
-        {RESPONDERS.map(r => {
+        {RESPONDERS.map((r, index) => {
           const sc = STATUS_CONFIG[r.status];
           const handled = incidentsHandled(r.name);
           const device = getDeviceForResponder(r.id, assignments);
           return (
-            <div key={r.id} className="responder-card">
+            <div 
+              key={r.id} 
+              id={index === 0 ? 'spotlight-responder-card-0' : undefined} /* 🛡️ TARGET 2: Highlights the first card */
+              className="responder-card"
+            >
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:12 }}>
                 <div className="resp-avatar">{r.initials}</div>
                 <span className={`badge ${sc.cls}`} style={{ padding:'4px 10px' }}>{sc.label}</span>
@@ -88,6 +117,9 @@ export default function RespondersPage() {
           );
         })}
       </div>
+
+      {/* 🛡️ INJECT THE TOUR ENGINE */}
+      <VoiceTour storageKey="valkyra-tour-responders" steps={PAGE_STEPS} />
     </>
   );
 }

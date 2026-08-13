@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 
+// 🛡️ IMPORTS FOR THE PERSONALIZED VOICE TOUR
+import { useSession } from 'next-auth/react';
+import VoiceTour, { TourStep } from '@/components/VoiceTour';
+
 // --- MOCK INTELLIGENCE DATA ---
 const VULNERABILITIES = [
   { id: 'V-772', region: 'North Unit', issue: 'Tourniquet Placement Delay', severity: 'High', adherence: 64, trend: 'down' },
@@ -37,6 +41,32 @@ export default function TrainingIntelPage() {
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'ROSTER'>('OVERVIEW');
   const [selectedVulnerability, setSelectedVulnerability] = useState<string | null>('V-772');
 
+  // 🛡️ EXTRACT USER NAME FOR PERSONALIZED GREETING
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(' ')[0] || 'Commander';
+
+  // 🛡️ DYNAMIC SIMULATION STEPS
+  const PAGE_STEPS: TourStep[] = [
+    {
+      targetId: 'spotlight-training-metrics',
+      tag: 'NETWORK ADHERENCE',
+      title: 'Global Protocol Metrics',
+      script: `Welcome to Training Intelligence, ${firstName}. This module aggregates fleet-wide procedural adherence and drill certification rates.`
+    },
+    {
+      targetId: 'spotlight-vulnerabilities',
+      tag: 'GAP ANALYSIS',
+      title: 'Identified Vulnerabilities',
+      script: 'The system continuously audits field telemetry to automatically flag procedural deviations and critical skill gaps.'
+    },
+    {
+      targetId: 'spotlight-recommendations',
+      tag: 'AI GENERATION',
+      title: 'Dynamic Drill Protocols',
+      script: 'Based on the identified vulnerabilities, Valkyra AI instantly generates targeted remedial drills to ensure peak operational readiness. Briefing complete.'
+    }
+  ];
+
   return (
     <div className="pb-10">
 
@@ -61,8 +91,8 @@ export default function TrainingIntelPage() {
       {activeTab === 'OVERVIEW' && (
         <motion.div variants={staggerContainer} initial="hidden" animate="show">
           
-          {/* TOP STATS GRID */}
-          <div className="metrics-grid" style={{ marginBottom: 24 }}>
+          {/* 🛡️ TARGET 1: TOP STATS GRID */}
+          <div id="spotlight-training-metrics" className="metrics-grid" style={{ marginBottom: 24 }}>
             {/* Adherence Card */}
             <motion.div variants={cardVariant} className="metric-card mc-cyan relative overflow-hidden transition-all hover:-translate-y-1">
               <div className="metric-label relative z-10">Global Protocol Adherence</div>
@@ -95,8 +125,8 @@ export default function TrainingIntelPage() {
           {/* SPLIT WORKSPACE */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
-            {/* LEFT: Identified Gaps */}
-            <motion.div variants={cardVariant} className="card relative overflow-hidden">
+            {/* 🛡️ TARGET 2: LEFT - Identified Gaps */}
+            <motion.div id="spotlight-vulnerabilities" variants={cardVariant} className="card relative overflow-hidden">
               <div className="card-header">
                 <span className="card-title text-white flex items-center gap-2">
                   <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -141,8 +171,8 @@ export default function TrainingIntelPage() {
               </div>
             </motion.div>
 
-            {/* RIGHT: AI Recommendations */}
-            <motion.div variants={cardVariant} className="card relative overflow-hidden">
+            {/* 🛡️ TARGET 3: RIGHT - AI Recommendations */}
+            <motion.div id="spotlight-recommendations" variants={cardVariant} className="card relative overflow-hidden">
               <div className="absolute inset-0 pointer-events-none rounded-lg overflow-hidden opacity-20">
                 <motion.div className="w-full h-[1px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent shadow-[0_0_8px_rgba(34,211,238,0.8)]" animate={{ y: ["-100%", "800%"] }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} />
               </div>
@@ -234,6 +264,10 @@ export default function TrainingIntelPage() {
           </table>
         </motion.div>
       )}
+
+      {/* 🛡️ INJECT THE TOUR ENGINE */}
+      <VoiceTour storageKey="valkyra-tour-training" steps={PAGE_STEPS} />
+
     </div>
   );
 }

@@ -3,6 +3,10 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 
+// 🛡️ IMPORTS FOR THE PERSONALIZED VOICE TOUR
+import { useSession } from 'next-auth/react';
+import VoiceTour, { TourStep } from '@/components/VoiceTour';
+
 // --- MOCK GEOGRAPHIC INCIDENT DATA ---
 const MOCK_INCIDENTS = Array.from({ length: 45 }).map((_, i) => {
   const isCritical = Math.random() > 0.7;
@@ -37,11 +41,38 @@ export default function HeatmapPage() {
     });
   }, [timeRange, activeZone, outcomeFilter]);
 
+  // 🛡️ EXTRACT USER NAME FOR PERSONALIZED GREETING
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(' ')[0] || 'Commander';
+
+  // 🛡️ DYNAMIC SIMULATION STEPS
+  const PAGE_STEPS: TourStep[] = [
+    {
+      targetId: 'spotlight-heatmap-filters',
+      tag: 'DATA CONSOLE',
+      title: 'Geographic Filters',
+      script: `Welcome to the Geographic Heatmap, ${firstName}. Use this top console to filter incident clusters by deployment zone, historical timeframe, or triage severity.`
+    },
+    {
+      targetId: 'spotlight-heatmap-canvas',
+      tag: 'LIVE RADAR',
+      title: 'Tactical Deployment Map',
+      script: 'This radar canvas visualizes real-time incident concentrations. Red zones indicate critical trauma clusters requiring immediate resource reallocation.'
+    },
+    {
+      targetId: 'spotlight-heatmap-legend',
+      tag: 'TELEMETRY LEGEND',
+      title: 'Triage Indicators',
+      script: 'Use this legend to quickly identify triage statuses across the grid. The system continuously updates live data points as field units report in. Briefing complete.'
+    }
+  ];
+
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-4 pb-6">
 
-      {/* 1. HORIZONTAL FILTER DECK (shrink-0 prevents squishing) */}
+      {/* 🛡️ TARGET 1: HORIZONTAL FILTER DECK */}
       <motion.div 
+        id="spotlight-heatmap-filters"
         variants={panelVariant} 
         initial="hidden" 
         animate="show" 
@@ -130,8 +161,8 @@ export default function HeatmapPage() {
 
       </motion.div>
 
-      {/* 2. DEDICATED MAP CANVAS (flex-1 fills remaining space) */}
-      <motion.div variants={panelVariant} initial="hidden" animate="show" className="card relative flex-1 p-0 overflow-hidden" style={{ minHeight: '500px', border: '1px solid var(--border)' }}>
+      {/* 🛡️ TARGET 2: DEDICATED MAP CANVAS */}
+      <motion.div id="spotlight-heatmap-canvas" variants={panelVariant} initial="hidden" animate="show" className="card relative flex-1 p-0 overflow-hidden" style={{ minHeight: '500px', border: '1px solid var(--border)' }}>
         
         {/* Radar Grid Overlay */}
         <div
@@ -192,8 +223,8 @@ export default function HeatmapPage() {
           })}
         </AnimatePresence>
 
-        {/* 3. FLOATING BOTTOM LEGEND */}
-        <div className="absolute bottom-6 left-6 pointer-events-none" style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', background: 'rgba(0,0,0,0.6)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border)', backdropFilter: 'blur(10px)' }}>
+        {/* 🛡️ TARGET 3: FLOATING BOTTOM LEGEND */}
+        <div id="spotlight-heatmap-legend" className="absolute bottom-6 left-6 pointer-events-none" style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', background: 'rgba(0,0,0,0.6)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border)', backdropFilter: 'blur(10px)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(248,113,113,0.8)]" />
             <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text2)' }}>Severe / Red</span>
@@ -212,6 +243,10 @@ export default function HeatmapPage() {
         </div>
 
       </motion.div>
+
+      {/* 🛡️ INJECT THE TOUR ENGINE */}
+      <VoiceTour storageKey="valkyra-tour-heatmap" steps={PAGE_STEPS} />
+
     </div>
   );
 }

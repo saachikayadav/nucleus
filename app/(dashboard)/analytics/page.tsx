@@ -8,6 +8,10 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 
+// 🛡️ IMPORTS FOR PERSONALIZED VOICE TOUR
+import { useSession } from 'next-auth/react';
+import VoiceTour, { TourStep } from '@/components/VoiceTour';
+
 // --- MOCK LONGITUDINAL DATA ---
 const rescueTrendData = [
   { month: 'Jan', rescue: 62, fatality: 38, baseline: 55 },
@@ -44,7 +48,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-// Fixed the TypeScript inference error by explicitly defining the type and using `as const`
 const staggerReveal: Variants = {
   hidden: { opacity: 0, y: 15 },
   show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.1, duration: 0.4, ease: "easeOut" as const } }),
@@ -56,27 +59,50 @@ export default function AnalyticsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const dashboardRef = useRef<HTMLDivElement>(null);
 
+  // 🛡️ EXTRACT USER NAME FOR PERSONALIZED SCRIPT
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(' ')[0] || 'Officer';
+
+  // 🛡️ ANALYTICS-SPECIFIC BRIEFING SCRIPT
+  const ANALYTICS_STEPS: TourStep[] = [
+    {
+      targetId: 'spotlight-rescue-trend',
+      tag: 'LONGITUDINAL OUTCOMES',
+      title: 'Rescue vs Fatality Trajectory',
+      script: `Welcome to Analytics, ${firstName}. This panel monitors long-term survival metrics, showing baseline comparisons pre and post Valkyra deployment.`
+    },
+    {
+      targetId: 'spotlight-intervention',
+      tag: 'CLINICAL EFFICIENCY',
+      title: 'Intervention Impact',
+      script: 'Here you can evaluate relative survival increases and protocol stabilization times across network wards.'
+    },
+    {
+      targetId: 'spotlight-demographics',
+      tag: 'REGIONAL DEMOGRAPHICS',
+      title: 'Trauma Distribution',
+      script: 'This module categorizes trauma frequency by injury type and regional deployment zone. Analytics briefing complete.'
+    }
+  ];
+
   // --- VISUAL EXPORT ENGINE ---
   const handleExportVisualPDF = async () => {
     if (!dashboardRef.current) return;
     setIsExporting(true);
     
     try {
-      // 1. Take a high-resolution snapshot of the dashboard
       const canvas = await html2canvas(dashboardRef.current, {
-        backgroundColor: '#020617', // Match your global dark background
-        scale: 2, // 2x scale for sharp text in the PDF
+        backgroundColor: '#020617',
+        scale: 2,
         useCORS: true,
       });
 
       const imgData = canvas.toDataURL('image/png');
       
-      // 2. Initialize PDF (Landscape A4 fits dashboards best)
       const pdf = new jsPDF('l', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      // 3. Draw Header
       pdf.setFontSize(16);
       pdf.setTextColor(40, 40, 40);
       pdf.setFont("helvetica", "bold");
@@ -90,10 +116,8 @@ export default function AnalyticsPage() {
       pdf.setDrawColor(200, 200, 200);
       pdf.line(14, 32, pdfWidth - 14, 32);
 
-      // 4. Inject visual snapshot
       pdf.addImage(imgData, 'PNG', 14, 38, pdfWidth - 28, pdfHeight * ((pdfWidth - 28) / pdfWidth));
       
-      // 5. Download
       pdf.save(`Valkyra_Analytics_Snapshot_${Date.now()}.pdf`);
     } catch (error) {
       console.error('Failed to generate visual export', error);
@@ -134,12 +158,20 @@ export default function AnalyticsPage() {
         </button>
       </div>
 
-      {/* DASHBOARD CONTAINER (Ref attached here for snapshot) */}
+      {/* DASHBOARD CONTAINER */}
       <div ref={dashboardRef} className="bg-[#020617] p-2 rounded-xl -m-2">
         {/* TOP GRID: PRIMARY OUTCOMES */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           
-          <motion.div custom={1} initial="hidden" animate="show" variants={staggerReveal} className="card lg:col-span-2 relative overflow-hidden">
+          {/* 🛡️ TARGET 1: Rescue vs Fatality Trend */}
+          <motion.div 
+            id="spotlight-rescue-trend"
+            custom={1} 
+            initial="hidden" 
+            animate="show" 
+            variants={staggerReveal} 
+            className="card lg:col-span-2 relative overflow-hidden"
+          >
             <div className="absolute inset-0 pointer-events-none rounded-lg overflow-hidden opacity-[0.03]">
                <motion.div className="w-full h-[1px] bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" animate={{ y: ["-100%", "800%"] }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }} />
             </div>
@@ -172,7 +204,16 @@ export default function AnalyticsPage() {
             </div>
           </motion.div>
 
-          <motion.div custom={2} initial="hidden" animate="show" variants={staggerReveal} className="card relative overflow-hidden flex flex-col justify-between" style={{ background: 'linear-gradient(145deg, rgba(34,211,238,0.05) 0%, rgba(0,0,0,0.2) 100%)', borderColor: 'rgba(34,211,238,0.2)' }}>
+          {/* 🛡️ TARGET 2: Intervention Impact */}
+          <motion.div 
+            id="spotlight-intervention"
+            custom={2} 
+            initial="hidden" 
+            animate="show" 
+            variants={staggerReveal} 
+            className="card relative overflow-hidden flex flex-col justify-between" 
+            style={{ background: 'linear-gradient(145deg, rgba(34,211,238,0.05) 0%, rgba(0,0,0,0.2) 100%)', borderColor: 'rgba(34,211,238,0.2)' }}
+          >
             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent pointer-events-none" />
             
             <div className="relative z-10 p-2">
@@ -213,7 +254,15 @@ export default function AnalyticsPage() {
         </div>
 
         {/* BOTTOM GRID: INJURY FREQUENCY */}
-        <motion.div custom={3} initial="hidden" animate="show" variants={staggerReveal} className="card relative overflow-hidden">
+        {/* 🛡️ TARGET 3: Regional Demographics */}
+        <motion.div 
+          id="spotlight-demographics"
+          custom={3} 
+          initial="hidden" 
+          animate="show" 
+          variants={staggerReveal} 
+          className="card relative overflow-hidden"
+        >
           <div className="card-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
             <div>
               <span className="card-title text-cyan-400">Regional Injury Demographics</span>
@@ -248,6 +297,9 @@ export default function AnalyticsPage() {
           </div>
         </motion.div>
       </div>
+
+      {/* 🛡️ VOICE TOUR ENGINE INSTANTIATION */}
+      <VoiceTour storageKey="valkyra-tour-analytics" steps={ANALYTICS_STEPS} />
 
     </div>
   );

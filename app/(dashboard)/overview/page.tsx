@@ -2,10 +2,13 @@
 import { useSummary, useAllSessions } from '@/hooks';
 import { useNucleusStore } from '@/store/useNucleusStore';
 import { pwatColor, triageClass, formatTime } from '@/lib/utils';
-import { motion, useMotionValue, useTransform, animate, Variants } from 'framer-motion';
-import { useEffect } from 'react';
+import { motion, useMotionValue, useTransform, animate, Variants, AnimatePresence, useSpring } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import VoiceTour, { TourStep } from '@/components/VoiceTour';
 
-// --- HUD Number Ticker Component ---
+// 🛡️ ENFORCED "PHOTOGRAPHIC WOUND ASSESSMENT TOOL"
+import { useSession } from 'next-auth/react'; 
+
 function AnimatedNumber({ value, decimals = 0 }: { value: any, decimals?: number }) {
   const count = useMotionValue(0);
   const formatted = useTransform(count, (latest) => latest.toFixed(decimals));
@@ -21,7 +24,6 @@ function AnimatedNumber({ value, decimals = 0 }: { value: any, decimals?: number
   return <motion.span>{formatted}</motion.span>;
 }
 
-// --- Valkyra Nucleus Animation Variants ---
 const staggerReveal: Variants = {
   hidden: { opacity: 0, y: 15 },
   show: (i: number) => ({
@@ -31,7 +33,6 @@ const staggerReveal: Variants = {
   }),
 };
 
-// --- Live Radar Scanline Component ---
 function ScannerSweep() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-lg opacity-[0.15]">
@@ -44,15 +45,51 @@ function ScannerSweep() {
   );
 }
 
-function MetricCard({ label, value, sub, color, bg, decimals = 0 }: any) {
+function MetricCard({ label, value, sub, color, bg, decimals = 0, tooltip }: any) {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  const cursorX = useMotionValue(-100);
+  const cursorY = useMotionValue(-100);
+
+  const springConfig = { damping: 25, stiffness: 300, mass: 0.5 };
+  const smoothX = useSpring(cursorX, springConfig);
+  const smoothY = useSpring(cursorY, springConfig);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    cursorX.set(e.clientX + 15);
+    cursorY.set(e.clientY - 40);
+  };
+
   return (
-    <div className={`metric-card ${bg} relative transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] overflow-hidden`}>
-      <ScannerSweep />
-      <div className="metric-label relative z-10">{label}</div>
-      <div className={`metric-value ${color} relative z-10`}>
-        <AnimatedNumber value={value} decimals={decimals} />
+    <div 
+      className="relative"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onMouseMove={handleMouseMove}
+    >
+      <AnimatePresence>
+        {isHovered && tooltip && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.15 }}
+            style={{ position: 'fixed', left: smoothX, top: smoothY }}
+            className="w-max max-w-[220px] bg-slate-900 border border-slate-700/80 rounded px-3 py-2 text-[11px] leading-relaxed text-slate-200 font-mono shadow-[0_10px_20px_rgba(0,0,0,0.5)] z-[9999] pointer-events-none"
+          >
+            {tooltip}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className={`metric-card ${bg} relative transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] overflow-hidden`}>
+        <ScannerSweep />
+        <div className="metric-label relative z-10">{label}</div>
+        <div className={`metric-value ${color} relative z-10`}>
+          <AnimatedNumber value={value} decimals={decimals} />
+        </div>
+        <div className="metric-delta relative z-10" dangerouslySetInnerHTML={{ __html: sub }} />
       </div>
-      <div className="metric-delta relative z-10" dangerouslySetInnerHTML={{ __html: sub }} />
     </div>
   );
 }
@@ -62,8 +99,31 @@ export default function OverviewPage() {
   const { data: sessionsData, isLoading: sessLoading } = useAllSessions();
   const setActivePatientId = useNucleusStore((s) => s.setActivePatientId);
 
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(' ')[0] || 'Doctor';
+
+  const OVERVIEW_STEPS: TourStep[] = [
+    {
+      targetId: 'spotlight-triage',
+      tag: 'NETWORK COMMAND',
+      title: 'Live Triage Analytics',
+      script: `Welcome to the Nucleus Command Center, ${firstName}. Triage Distribution provides a real-time, network-wide view of all critical patient alerts.`
+    },
+    {
+      targetId: 'spotlight-pwat',
+      tag: 'CLINICAL TELEMETRY',
+      title: 'Photographic Wound Assessment Tool',
+      script: 'This module tracks dynamic healing scales, instantly flagging clinical stagnation across your wards.'
+    },
+    {
+      targetId: 'spotlight-bot',
+      tag: 'VOICE INTELLIGENCE',
+      title: 'Valkyra AI Assistant',
+      script: 'I am Valkyra AI. You can speak to me at any time to analyze telemetry or pull records. Briefing complete.'
+    }
+  ];
+
   const sessions = sessionsData?.sessions ?? [];
-  // Keep only the critical ones for the truncated alert ticker feed
   const critical = sessions.filter((s: any) => s.triage_category === 'Red' || s.triage_category === 'Orange');
 
   const triage = summary?.triage_distribution ?? {} as any;
@@ -84,7 +144,6 @@ export default function OverviewPage() {
           className="notif-banner error flex items-center gap-3" 
           style={{ marginBottom: 20 }}
         >
-          {/* Heartbeat Pulse */}
           <motion.div 
             className="w-2.5 h-2.5 rounded-full" 
             style={{ background: 'var(--red)' }}
@@ -108,21 +167,21 @@ export default function OverviewPage() {
 
       <div className="metrics-grid">
         <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal}>
-          <MetricCard label="Total Cases" value={sumLoading ? '—' : totalCases} sub='<span style="color:var(--text3)">All sessions recorded</span>' color="cv-blue" bg="mc-blue" />
+          <MetricCard tooltip="Total number of active and historical cases tracked." label="Total Cases" value={sumLoading ? '—' : totalCases} sub='<span style="color:var(--text3)">All sessions recorded</span>' color="cv-blue" bg="mc-blue" />
         </motion.div>
         <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal}>
-          <MetricCard label="Avg PWAT Score" value={sumLoading ? '—' : avgPwat} decimals={2} sub={`<span style="color:var(--text3)">Min ${minPwat} · Max ${maxPwat}</span>`} color="cv-amber" bg="mc-amber" />
+          <MetricCard tooltip="Average Photographic Wound Assessment Tool score across all patients." label="Avg PWAT Score" value={sumLoading ? '—' : avgPwat} decimals={2} sub={`<span style="color:var(--text3)">Min ${minPwat} · Max ${maxPwat}</span>`} color="cv-amber" bg="mc-amber" />
         </motion.div>
         <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal}>
-          <MetricCard label="Critical (Red)" value={sumLoading ? '—' : redCount} sub={redCount > 0 ? '<span class="delta-down">⚠ Immediate attention required</span>' : '<span class="delta-up">No critical cases</span>'} color="cv-red" bg="mc-red" />
+          <MetricCard tooltip="Number of severe cases currently flagged for immediate medical intervention." label="Critical (Red)" value={sumLoading ? '—' : redCount} sub={redCount > 0 ? '<span class="delta-down">⚠ Immediate attention required</span>' : '<span class="delta-up">No critical cases</span>'} color="cv-red" bg="mc-red" />
         </motion.div>
         <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal}>
-          <MetricCard label="Max PWAT Score" value={sumLoading ? '—' : maxPwat} sub='<span style="color:var(--text3)">Highest severity recorded</span>' color="cv-cyan" bg="mc-cyan" />
+          <MetricCard tooltip="The single highest recorded severity score in the active network." label="Max PWAT Score" value={sumLoading ? '—' : maxPwat} sub='<span style="color:var(--text3)">Highest severity recorded</span>' color="cv-cyan" bg="mc-cyan" />
         </motion.div>
       </div>
 
       <div className="mid-grid">
-        <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal} className="card relative overflow-hidden">
+        <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal} className="card relative overflow-hidden" id="spotlight-triage">
           <ScannerSweep />
           <div className="card-header relative z-10">
             <span className="card-title">Triage Distribution · All Cases</span>
@@ -145,7 +204,6 @@ export default function OverviewPage() {
                       <div style={{ fontSize: 10, color: 'var(--text2)', width: 80, fontFamily: 'var(--mono)' }}>{key}</div>
                       <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${item.pct}%`, background: colors[key], borderRadius: 2, position: 'relative', overflow: 'hidden' }}>
-                          {/* Energy Flow Progress Bar */}
                           <motion.div 
                             className="absolute top-0 bottom-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent"
                             animate={{ x: ["-100%", "300%"] }}
@@ -176,10 +234,10 @@ export default function OverviewPage() {
           </div>
         </motion.div>
 
-        <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal} className="card relative overflow-hidden">
+        <motion.div custom={++animationIndex} initial="hidden" animate="show" variants={staggerReveal} className="card relative overflow-hidden" id="spotlight-pwat">
           <ScannerSweep />
           <div className="card-header relative z-10">
-            <span className="card-title">PWAT Score Breakdown</span>
+            <span className="card-title">Photographic Wound Assessment Tool (PWAT) Breakdown</span>
             <span className="badge badge-ai">AI SCORED</span>
           </div>
           <div className="injury-list relative z-10">
@@ -193,16 +251,19 @@ export default function OverviewPage() {
                 <motion.div 
                   key={s.session_id} 
                   initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.1 }}
-                  className="injury-row hover:bg-white/5 transition-colors" style={{ cursor: 'pointer' }} onClick={() => setActivePatientId(s.session_id)}
+                  className="injury-row hover:bg-white/5 transition-colors pr-4" // 🛡️ Added pr-4 to prevent overlap
+                  style={{ cursor: 'pointer' }} onClick={() => setActivePatientId(s.session_id)}
                 >
                   <div className="inj-type" title={s.session_id}>{shortId}</div>
                   <div className="inj-track">
                     <div className="inj-fill" style={{ width: `${pct}%`, background: col, boxShadow: `0 0 8px ${col}`, position: 'relative', overflow: 'hidden' }}>
-                       {/* Energy Flow */}
                        <motion.div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent" animate={{ x: ["-100%", "300%"] }} transition={{ duration: 1.5, repeat: Infinity, ease: "linear", delay: idx * 0.2 }} />
                     </div>
                   </div>
-                  <div className="inj-count" style={{ color: col }}>{s.pwat_score}</div>
+                  {/* 🛡️ THE FIX: Formatted the long score to a single decimal place */}
+                  <div className="inj-count w-10 text-right shrink-0" style={{ color: col }}>
+                    {Number(s.pwat_score).toFixed(1)}
+                  </div>
                 </motion.div>
               );
             })}
@@ -254,17 +315,18 @@ export default function OverviewPage() {
               <motion.div 
                 key={s.session_id} 
                 initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 + (i * 0.1) }}
-                className="feed-item hover:bg-white/5 transition-colors cursor-pointer" 
+                className="feed-item hover:bg-white/5 transition-colors cursor-pointer pr-4" 
                 onClick={() => setActivePatientId(s.session_id)}
               >
                 <div className="feed-meta">
                   <span className={`feed-type ${triageClass(s.triage_category)}`}>{s.triage_category}</span>
                   <span className="feed-time">{formatTime(s.created_at)}</span>
                 </div>
-                <div className="feed-desc">PWAT {s.pwat_score} · {s.source_image || 'Unknown source'}</div>
+                {/* 🛡️ THE FIX: Formatted the score here as well */}
+                <div className="feed-desc truncate">PWAT {Number(s.pwat_score).toFixed(1)} · {s.source_image || 'Unknown source'}</div>
                 <div className="feed-outcome flex items-center gap-2">
                   <motion.div 
-                    className="w-1.5 h-1.5 rounded-full bg-red-500"
+                    className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"
                     animate={{ boxShadow: ["0 0 0px 0px rgba(248,113,113,0.8)", "0 0 10px 3px rgba(248,113,113,0)", "0 0 0px 0px rgba(248,113,113,0)"] }}
                     transition={{ duration: 1.5, repeat: Infinity }}
                   /> 
@@ -286,15 +348,14 @@ export default function OverviewPage() {
             <div className="acc-sub">Validated by licensed MDs this month</div>
             <div className="acc-rows">
               {[['GSW',97,'#93c5fd'],['Stab',95,'#93c5fd'],['Blunt',93,'var(--amber)'],['Burn',91,'var(--amber)']].map(([l,v,c], i) => (
-                <motion.div key={l as string} initial={{ opacity: 0, width: "80%" }} animate={{ opacity: 1, width: "100%" }} transition={{ delay: 0.3 + (i * 0.1) }} className="acc-row">
+                <motion.div key={l as string} initial={{ opacity: 0, width: "80%" }} animate={{ opacity: 1, width: "100%" }} transition={{ delay: 0.3 + (i * 0.1) }} className="acc-row pr-4">
                   <div className="acc-label">{l}</div>
                   <div className="acc-track">
                     <div className="acc-fill" style={{ width: `${v}%`, background: c as string, position: 'relative', overflow: 'hidden' }}>
-                      {/* Energy Flow */}
                       <motion.div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent" animate={{ x: ["-100%", "300%"] }} transition={{ duration: 1.8, repeat: Infinity, ease: "linear", delay: i * 0.3 }} />
                     </div>
                   </div>
-                  <div className="acc-pct"><AnimatedNumber value={v} />%</div>
+                  <div className="acc-pct w-10 text-right shrink-0"><AnimatedNumber value={v} />%</div>
                 </motion.div>
               ))}
             </div>
@@ -305,6 +366,8 @@ export default function OverviewPage() {
           </div>
         </motion.div>
       </div>
+      
+      <VoiceTour storageKey="valkyra-tour-overview" steps={OVERVIEW_STEPS} />
     </div>
   );
 }
